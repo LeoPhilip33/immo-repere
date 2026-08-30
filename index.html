@@ -35854,6 +35854,19 @@ function fluxHTML(cents, motEntre, motSort){
          (positif ? (motEntre || "entre") : (motSort || "sort")) + '</span></span>';
 }
 function taux(x){ return fini(x) ? nombre(x, 2) + INSEC + "%" : "—"; }
+
+/* Date ISO -> date française en toutes lettres. Toutes les dates affichées
+   passent par ici, à partir des valeurs de REF : lors d'une mise à jour de
+   millésime, il n'y a que REF à toucher. */
+var MOIS_FR = ["janvier","février","mars","avril","mai","juin",
+               "juillet","août","septembre","octobre","novembre","décembre"];
+function dateFr(iso){
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return "—";
+  var jour = parseInt(m[3], 10), mois = parseInt(m[2], 10) - 1;
+  if (!MOIS_FR[mois]) return "—";
+  return (jour === 1 ? "1er" : String(jour)) + " " + MOIS_FR[mois] + " " + m[1];
+}
 function m2(x){ return fini(x) ? nombre(x, 0) + INSEC + "m²" : "—"; }
 function euroM2(cents){ return fini(cents) ? nombre(Math.round(cents) / 100, 0) + INSEC + "€/m²" : "—"; }
 
@@ -36363,9 +36376,9 @@ function moisDepuis(dateISO){
 function htmlDatage(){
   var v = REF.ventes;
   return '<div class="datage">' +
-    '<span><b>Ventes réelles</b> du 1er janvier 2024 au 31 décembre 2025</span>' +
+    '<span><b>Ventes réelles</b> du ' + dateFr(v.periodeDebut) + ' au ' + dateFr(v.periodeFin) + '</span>' +
     '<span>' + nombre(v.ventesRetenues, 0) + ' ventes retenues</span>' +
-    '<span>Source : DVF, DGFiP · millésime du 5 avril 2026</span>' +
+    '<span>Source : DVF, DGFiP · millésime du ' + dateFr(v.millesime) + '</span>' +
     '</div>';
 }
 
@@ -36607,7 +36620,8 @@ function ecranVerdict(){
       '<p class="faible">Ventes ordinaires uniquement — les ventes en l\'état futur d\'achèvement, échanges, adjudications et expropriations sont écartées. Sont également écartées les mutations portant sur plusieurs locaux d\'habitation : une mutation porte une valeur unique pouvant couvrir plusieurs lots, et diviser ce total par la surface d\'un seul lot gonfle le prix au m² de 10 à 30 %. ' + nombre(REF.ventes.mutationsEcartees, 0) + ' mutations ont été écartées à ce titre. Les 5 % de prix les plus bas et les 5 % les plus hauts de chaque commune sont retirés avant tout calcul. Médiane et quantiles, jamais de moyenne.</p>' +
       '<h3 style="margin-top:14px">Surface Carrez et surface réelle bâtie</h3>' +
       '<p class="faible">DVF enregistre une surface réelle bâtie, l\'annonce une surface Carrez. Mesuré sur ce jeu de données : le rapport médian entre les deux vaut <b>' + nombre(REF.ventes.carrezRatio, 4).replace(",", ",") + '</b>, sur ' + nombre(REF.ventes.carrezLots, 0) + ' lots d\'appartements où les deux surfaces sont renseignées. L\'écart est donc négligeable en pratique, contrairement à ce qu\'on lit souvent.</p>' +
-      '<p class="faible">Source : ' + ech(REF.ventes.source) + '. ' + ech(REF.ventes.licence) + '. Millésime du 5 avril 2026, ventes du 1er janvier 2024 au 31 décembre 2025.</p>' +
+      '<p class="faible">Source : ' + ech(REF.ventes.source) + '. ' + ech(REF.ventes.licence) + '. Millésime du ' + dateFr(REF.ventes.millesime) + ', ventes du ' +
+      dateFr(REF.ventes.periodeDebut) + ' au ' + dateFr(REF.ventes.periodeFin) + '.</p>' +
     '</div></details>' +
 
     '<button class="bouton large" data-aller="projet">Tu comptes en faire quoi ?</button>' +
@@ -37605,11 +37619,12 @@ app.addEventListener("keydown", function(e){
   var o = REF.outil;
   document.getElementById("pied-source").innerHTML =
     "Ventes de référence : " + ech(REF.ventes.source) + ". " + ech(REF.ventes.licence) +
-    ". Millésime du 5 avril 2026, ventes du 1er janvier 2024 au 31 décembre 2025. " +
+    ". Millésime du " + dateFr(REF.ventes.millesime) + ", ventes du " +
+    dateFr(REF.ventes.periodeDebut) + " au " + dateFr(REF.ventes.periodeFin) + ". " +
     "Taux de crédit : " + ech(REF.credit.source) + ", " + ech(REF.credit.date) +
     ". Marges de négociation : " + ech(REF.negociation.source) + ", " + ech(REF.negociation.date) + ".";
   document.getElementById("pied-version").textContent =
-    "Version " + o.version + ", publiée le 30 août 2026.";
+    "Version " + o.version + ", publiée le " + dateFr(o.datePublication) + ".";
   document.getElementById("pied-marque").innerHTML = ech(o.marque) +
     (o.compte ? ' — <a href="' + ech(o.compte) + '" rel="noreferrer noopener">' +
                 ech(o.compteLibelle || o.compte) + '</a>' : '');
