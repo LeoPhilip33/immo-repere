@@ -1,0 +1,8 @@
+# Le livrable est un fichier unique : seul index.html est servi.
+# La chaîne de préparation, le gabarit et la documentation restent dans le
+# dépôt mais n'ont pas à être exposés à la racine du site.
+# vercel.json n'est pas listé ici : c'est de la configuration, lue par Vercel
+# et jamais servie comme fichier.
+preparation/
+README.md
+.gitignore
