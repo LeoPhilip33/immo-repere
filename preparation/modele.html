@@ -1,0 +1,2512 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Outil pédagogique gratuit pour lire une annonce immobilière : position du prix dans les ventes réelles de la commune, frais d'acquisition, crédit, location, revente. Fonctionne entièrement hors ligne.">
+<title>Repère — lire une annonce immobilière</title>
+<style>
+/* ==========================================================================
+   SYSTÈME VISUEL
+   Un seul thème, en clair, assumé. Le fond est peint explicitement sur body
+   et color-scheme force les contrôles natifs en clair : aucune couleur n'est
+   placée derrière une media query, la page ne change pas d'apparence selon
+   les réglages de la machine.
+
+   La règle de couleur tient en trois lignes :
+     · une seule teinte de marque, réservée à « toi » — ta position, ta valeur ;
+     · du gris pour le marché, jamais coloré ;
+     · de l'ambre uniquement pour un point d'attention — fiabilité de la
+       donnée, dépassement d'un repère — jamais pour qualifier un prix.
+   Deux exceptions, et seulement deux :
+     · un rouge pour le risque juridique qui peut rendre un projet impossible ;
+     · vert et rouge pour le signe d'un flux de trésorerie — l'argent entre ou
+       il sort. C'est un fait, pas un jugement.
+
+   Chaque état coloré est doublé d'un mot et d'une forme : environ 8 % des
+   hommes distinguent mal le rouge du vert.
+   ========================================================================== */
+:root{
+  color-scheme: light;
+
+  --fond:        #f4f2ee;
+  --surface:     #ffffff;
+  --tuile:       #faf8f5;
+  --tuile-bord:  #e8e4dc;
+  --bord:        #e2ded5;
+
+  --texte:       #1b1a17;
+  --texte-doux:  #605d55;
+  --texte-faible:#8a867c;
+
+  /* Teinte de marque — réservée à « toi ». */
+  --moi:         #2f4bbf;
+  --moi-fond:    #eaeefb;
+  --moi-bord:    #c3cdf2;
+
+  /* Le marché : gris, jamais coloré. */
+  --marche:      #a29e94;
+  --marche-clair:#d6d2c8;
+  --marche-fonce:#6f6b62;
+
+  /* Attention : fiabilité, dépassement d'un repère. Jamais un prix. */
+  --ambre:       #8a5a00;
+  --ambre-fond:  #fdf3dd;
+  --ambre-bord:  #ecd7a2;
+
+  /* Risque juridique — usage unique. */
+  --risque:      #a11c1c;
+  --risque-fond: #fbeceb;
+  --risque-bord: #f0c8c5;
+
+  /* Signe d'un flux de trésorerie. */
+  --entre:       #1a6b3c;
+  --sort:        #a11c1c;
+
+  --r-s:  10px;
+  --r-m:  16px;
+  --r-l:  22px;
+  --ombre-douce: 0 1px 2px rgba(30,26,18,.05), 0 8px 26px rgba(30,26,18,.05);
+  --ombre-nette: 0 1px 2px rgba(30,26,18,.07), 0 2px 6px rgba(30,26,18,.05);
+
+  --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --chiffres: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+*,*::before,*::after{ box-sizing: border-box; }
+
+html{ -webkit-text-size-adjust: 100%; }
+
+body{
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--police);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Le fond de page est légèrement dégradé vers le haut : un repère visuel
+   discret qui sépare le bandeau de datage du contenu. */
+body::before{
+  content:""; position: fixed; inset: 0 0 auto 0; height: 220px;
+  background: linear-gradient(180deg, #ecebe5 0%, rgba(236,235,229,0) 100%);
+  pointer-events: none; z-index: 0;
+}
+
+.enveloppe{ position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 0 18px 96px; }
+
+h1,h2,h3{ line-height: 1.2; margin: 0 0 .4em; font-weight: 640; letter-spacing: -.015em; }
+h1{ font-size: clamp(1.75rem, 5vw, 2.4rem); }
+h2{ font-size: clamp(1.3rem, 3.6vw, 1.65rem); }
+h3{ font-size: 1.02rem; font-weight: 620; }
+p{ margin: 0 0 1em; }
+a{ color: var(--moi); }
+
+.doux{ color: var(--texte-doux); }
+.faible{ color: var(--texte-faible); font-size: .86rem; }
+.chiffre{ font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* --- Bandeaux et cartes ------------------------------------------------- */
+.carte{
+  background: var(--surface); border: 1px solid var(--bord);
+  border-radius: var(--r-l); padding: 22px; margin: 0 0 18px;
+  box-shadow: var(--ombre-douce);
+}
+.tuile{
+  background: var(--tuile); border: 1px solid var(--tuile-bord);
+  border-radius: var(--r-m); padding: 14px 16px;
+}
+.grille{ display: grid; gap: 12px; }
+.grille.deux{ grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.grille.quatre{ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+/* Bandeau de datage : visible sans avoir à faire défiler la page. */
+.datage{
+  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline;
+  font-size: .82rem; color: var(--texte-doux);
+  border: 1px solid var(--bord); background: var(--surface);
+  border-radius: var(--r-m); padding: 11px 14px; margin: 16px 0 20px;
+}
+.datage b{ font-weight: 620; color: var(--texte); }
+
+.avis{
+  border-radius: var(--r-m); padding: 13px 15px; margin: 0 0 14px;
+  font-size: .93rem; border: 1px solid transparent;
+}
+.avis .etiquette{ font-weight: 660; display: block; margin-bottom: 2px; }
+.avis.attention{ background: var(--ambre-fond); border-color: var(--ambre-bord); color: var(--ambre); }
+.avis.attention .etiquette::before{ content: "▲ "; }
+.avis.risque{ background: var(--risque-fond); border-color: var(--risque-bord); color: var(--risque); }
+.avis.risque .etiquette::before{ content: "■ "; }
+.avis.neutre{ background: var(--tuile); border-color: var(--tuile-bord); color: var(--texte-doux); }
+
+/* --- Boutons ------------------------------------------------------------ */
+button{ font: inherit; }
+.bouton{
+  appearance: none; border: 1px solid var(--moi); background: var(--moi); color: #fff;
+  border-radius: 999px; padding: 13px 26px; font-size: 1rem; font-weight: 600;
+  cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: var(--ombre-nette);
+}
+.bouton:hover:not(:disabled){ background: #2740a6; }
+.bouton:active:not(:disabled){ transform: translateY(1px); }
+.bouton:disabled{ background: var(--marche-clair); border-color: var(--marche-clair); color: #6b675f; cursor: not-allowed; box-shadow: none; }
+.bouton.secondaire{ background: transparent; color: var(--moi); border-color: var(--moi-bord); box-shadow: none; }
+.bouton.secondaire:hover{ background: var(--moi-fond); }
+.bouton.discret{ background: transparent; color: var(--texte-doux); border-color: var(--bord); box-shadow: none; }
+.bouton.discret:hover{ background: var(--tuile); }
+.bouton.large{ width: 100%; }
+:focus-visible{ outline: 3px solid var(--moi); outline-offset: 2px; border-radius: 6px; }
+
+/* --- Champs de saisie --------------------------------------------------- */
+.champ{ margin: 0 0 16px; }
+.champ > label, .legende{
+  display: block; font-size: .9rem; font-weight: 600; margin-bottom: 6px;
+}
+.champ .aide{ font-size: .82rem; color: var(--texte-doux); margin: -2px 0 7px; }
+input[type=text], input[type=search], input[type=number], select{
+  width: 100%; padding: 12px 14px; font: inherit; color: var(--texte);
+  background: var(--surface); border: 1px solid var(--bord);
+  border-radius: var(--r-s); font-variant-numeric: tabular-nums;
+}
+input:focus, select:focus{ border-color: var(--moi); outline: none; box-shadow: 0 0 0 3px var(--moi-fond); }
+.duo{ display: flex; gap: 10px; }
+.duo button{
+  flex: 1; padding: 13px 10px; border-radius: var(--r-s); cursor: pointer;
+  border: 1px solid var(--bord); background: var(--surface); color: var(--texte);
+  font-weight: 560;
+}
+.duo button[aria-pressed=true]{ border-color: var(--moi); background: var(--moi-fond); color: var(--moi); font-weight: 640; }
+
+/* Autocomplétion de commune. */
+.recherche{ position: relative; }
+.suggestions{
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 5px);
+  background: var(--surface); border: 1px solid var(--bord); border-radius: var(--r-m);
+  box-shadow: var(--ombre-nette); max-height: 290px; overflow-y: auto; padding: 5px;
+}
+.suggestions[hidden]{ display: none !important; }
+.suggestions button{
+  display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  padding: 9px 11px; border-radius: var(--r-s); cursor: pointer; color: var(--texte);
+}
+.suggestions button:hover, .suggestions button[aria-selected=true]{ background: var(--moi-fond); }
+.suggestions .sec{ color: var(--texte-doux); font-size: .84rem; }
+.suggestions .vide{ padding: 11px; color: var(--texte-doux); font-size: .9rem; }
+
+/* --- Curseurs ----------------------------------------------------------- */
+/* Une HYPOTHÈSE se manipule : curseur + champ numérique éditable, toujours
+   les deux. Une RÈGLE n'apparaît jamais ici. */
+.curseur{ margin: 0 0 22px; }
+.curseur .tete{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 3px; }
+.curseur .nom{ font-size: .93rem; font-weight: 600; }
+.curseur .valeur{ display: flex; align-items: center; gap: 5px; }
+.curseur .valeur input{ width: 116px; padding: 6px 9px; text-align: right; font-weight: 620; }
+.curseur .unite{ font-size: .88rem; color: var(--texte-doux); }
+.curseur .depart{ font-size: .78rem; color: var(--texte-faible); margin: 0 0 9px; }
+.piste{ position: relative; padding: 16px 0 30px; }
+.piste.rangs2{ padding-bottom: 48px; }
+.piste.rangs3{ padding-bottom: 66px; }
+input[type=range]{
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px; margin: 0;
+  background: var(--marche-clair); border-radius: 999px; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--moi); border: 3px solid #fff; box-shadow: var(--ombre-nette); cursor: grab;
+}
+input[type=range]::-moz-range-thumb{
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--moi); border: 3px solid #fff; box-shadow: var(--ombre-nette); cursor: grab;
+}
+/* Le repère marqué sur la barre est l'élément central du design : il est
+   visible avant que l'utilisateur touche à quoi que ce soit. Il ne prédit
+   rien — le point d'équilibre existe qu'on y croie ou non. */
+.repere{ position: absolute; top: 8px; transform: translateX(-50%); pointer-events: none; text-align: center; width: 0; }
+.repere i{ display: block; width: 2px; height: 22px; background: var(--marche-fonce); margin: 0 auto; border-radius: 1px; }
+.repere span{
+  display: block; white-space: nowrap; font-size: .72rem; color: var(--marche-fonce);
+  margin-top: 2px; transform: translateX(-50%); position: absolute; left: 0; top: 24px;
+}
+.repere.debord i{ background: var(--ambre); }
+.repere.debord span{ color: var(--ambre); font-weight: 600; }
+.repere.gauche span{ transform: none; left: -2px; }
+.repere.droite span{ transform: translateX(-100%); left: 2px; }
+/* Deux repères proches verraient leurs étiquettes se chevaucher : on les
+   décale d'un rang, et le trait s'allonge pour rester rattaché à sa barre. */
+.repere.rang1 span{ top: 42px; }
+.repere.rang2 span{ top: 60px; }
+.repere.rang1 i{ height: 40px; }
+.repere.rang2 i{ height: 58px; }
+
+/* --- Résultat épinglé --------------------------------------------------- */
+/* Sur mobile, le bloc de résultat reste visible pendant qu'on manipule les
+   curseurs : c'est la seule façon de voir l'effet de ce qu'on déplace. */
+.epingle{
+  position: sticky; top: 0; z-index: 20;
+  background: var(--surface); border: 1px solid var(--moi-bord);
+  border-radius: var(--r-l); padding: 16px 18px; margin: 0 0 20px;
+  box-shadow: 0 2px 4px rgba(30,26,18,.05), 0 10px 24px rgba(30,26,18,.07);
+}
+.epingle .ligne{ display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline; }
+.epingle .principal{ font-size: clamp(1.5rem, 5.2vw, 2rem); font-weight: 680; color: var(--moi); letter-spacing: -.02em; }
+.epingle .etiquette{ font-size: .82rem; color: var(--texte-doux); display: block; }
+.epingle .secondaire{ font-size: 1.05rem; font-weight: 620; }
+
+/* --- Chiffre héros ------------------------------------------------------ */
+.heros{ text-align: center; padding: 8px 0 4px; }
+.heros .nombre{
+  font-size: clamp(3.6rem, 17vw, 6rem); font-weight: 700; line-height: .95;
+  color: var(--moi); letter-spacing: -.045em; display: block;
+}
+.heros .phrase{ font-size: clamp(1.02rem, 3.2vw, 1.18rem); max-width: 30ch; margin: 12px auto 0; }
+.revelation{ animation: monter .8s cubic-bezier(.16,.9,.3,1) both; }
+@keyframes monter{ from{ opacity: 0; transform: translateY(14px); } to{ opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce){
+  .revelation{ animation: none; }
+  *{ transition-duration: .01ms !important; }
+}
+
+/* --- Tuiles de chiffres ------------------------------------------------- */
+.tuile .cle{ font-size: .81rem; color: var(--texte-doux); display: block; margin-bottom: 1px; }
+.tuile .val{ font-size: 1.3rem; font-weight: 660; letter-spacing: -.02em; }
+.tuile .note{ font-size: .78rem; color: var(--texte-faible); display: block; margin-top: 2px; }
+.tuile.moi{ background: var(--moi-fond); border-color: var(--moi-bord); }
+.tuile.moi .val{ color: var(--moi); }
+
+/* Signe d'un flux : couleur + mot + forme, jamais la couleur seule. */
+.flux{ font-weight: 660; }
+.flux.entre{ color: var(--entre); }
+.flux.sort{ color: var(--sort); }
+.flux .forme{ font-family: var(--chiffres); }
+
+/* --- Décomptes ---------------------------------------------------------- */
+.decompte{ width: 100%; border-collapse: collapse; font-size: .93rem; }
+.decompte th, .decompte td{ padding: 9px 2px; text-align: left; border-bottom: 1px solid var(--bord); vertical-align: baseline; }
+.decompte td:last-child, .decompte th:last-child{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.decompte tr:last-child td{ border-bottom: 0; }
+.decompte tfoot td{ font-weight: 680; border-top: 2px solid var(--texte); border-bottom: 0; padding-top: 11px; }
+.decompte .sous{ display: block; font-size: .79rem; color: var(--texte-faible); font-weight: 400; }
+
+/* --- Définitions en ligne ----------------------------------------------- */
+/* Tout terme technique est défini en une phrase au moment où il apparaît,
+   jamais dans un glossaire en fin de page. */
+.def{ border-bottom: 1px dotted var(--texte-faible); cursor: help; }
+.def-texte{ display: block; font-size: .81rem; color: var(--texte-doux); margin-top: 3px; }
+
+/* --- Repliables --------------------------------------------------------- */
+details.pliable{ border: 1px solid var(--bord); border-radius: var(--r-m); background: var(--surface); margin: 0 0 14px; }
+details.pliable > summary{ padding: 13px 16px; cursor: pointer; font-weight: 600; font-size: .95rem; list-style: none; }
+details.pliable > summary::-webkit-details-marker{ display: none; }
+details.pliable > summary::before{ content: "▸ "; color: var(--texte-doux); }
+details.pliable[open] > summary::before{ content: "▾ "; }
+details.pliable > .corps{ padding: 0 16px 16px; }
+
+/* --- Cartes de projet --------------------------------------------------- */
+.projet{
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--bord); border-radius: var(--r-m);
+  padding: 17px 18px; box-shadow: var(--ombre-douce);
+}
+.projet:hover{ border-color: var(--moi-bord); background: var(--moi-fond); }
+.projet strong{ display: block; font-size: 1.06rem; margin-bottom: 2px; }
+.projet span{ font-size: .87rem; color: var(--texte-doux); }
+
+/* --- Visualisations ----------------------------------------------------- */
+.viz{ display: block; width: 100%; height: auto; overflow: visible; }
+.defile{ overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* --- Contrôles internes ------------------------------------------------- */
+.ctrl{ display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--bord); font-size: .9rem; align-items: baseline; }
+.ctrl .marque{ font-weight: 700; font-family: var(--chiffres); flex: none; width: 5.6em; }
+.ctrl.ok .marque{ color: var(--entre); }
+.ctrl.ko .marque{ color: var(--sort); }
+.ctrl .detail{ display: block; color: var(--texte-doux); font-size: .82rem; }
+
+/* --- Pied de page ------------------------------------------------------- */
+footer{ margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--bord); font-size: .82rem; color: var(--texte-doux); }
+footer p{ margin: 0 0 .7em; }
+footer .liens{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+footer .liens button{ background: none; border: 0; padding: 0; color: var(--moi); cursor: pointer; font-size: inherit; text-decoration: underline; }
+
+.barre-nav{ display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 0; }
+[hidden]{ display: none !important; }
+.sr{ position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body>
+<div class="enveloppe">
+<main id="app" aria-live="polite"></main>
+<footer>
+  <p><b>Outil pédagogique gratuit. Ne constitue ni un conseil en investissement, ni une estimation immobilière, ni une offre de crédit.</b></p>
+  <p>Avant toute décision engageante, fais vérifier ces chiffres par un notaire, un courtier ou un conseiller.</p>
+  <p>Cet outil fonctionne entièrement sur ton ordinateur. Aucune donnée saisie n'est envoyée nulle part.</p>
+  <p id="pied-source"></p>
+  <p id="pied-version"></p>
+  <div class="liens">
+    <button type="button" data-aller="limites">Ce que cet outil ignore</button>
+    <button type="button" data-aller="controles">Contrôles internes</button>
+    <button type="button" data-aller="accueil">Recommencer</button>
+  </div>
+  <p style="margin-top:14px" class="faible" id="pied-marque"></p>
+</footer>
+</div>
+<script>
+"use strict";
+
+/* ==========================================================================
+   1. CONSTANTES DE RÉFÉRENCE
+   Toutes regroupées ici, chacune avec sa source et sa date, pour que la mise
+   à jour trimestrielle soit triviale.
+
+   RAPPEL DE LA RÈGLE QUI GOUVERNE TOUT LE RESTE
+     · DONNÉE    fait mesuré et publié. Affichée avec sa source et sa date,
+                 jamais modifiable.
+     · RÈGLE     barème ou mécanique de calcul. Calculée, jamais sur un curseur.
+     · HYPOTHÈSE projection qui appartient à l'utilisateur. Curseur + champ
+                 éditable, valeur de départ présentée comme point de départ.
+   Chaque entrée ci-dessous est étiquetée.
+   ========================================================================== */
+var REF = {
+
+  /* --- DONNÉE : ventes de référence ------------------------------------ */
+  ventes: {
+    nature: "DONNEE",
+    source: "Demandes de valeurs foncières (DVF), DGFiP, diffusion Etalab sur data.gouv.fr",
+    licence: "Licence Ouverte Etalab 2.0",
+    millesime: "2026-04-05",             // millésime épinglé du fichier DVF
+    periodeDebut: "2024-01-01",
+    periodeFin: "2025-12-31",
+    prochainePublication: "octobre 2026",
+    ventesRetenues: __VENTES_RETENUES__,
+    mutationsEcartees: __MUTATIONS_ECARTEES__,
+    // Départements tenus au livre foncier et non au cadastre : ils sont
+    // absents du fichier national. Aucune note ne peut y être calculée.
+    departementsAbsents: { "57": 1, "67": 1, "68": 1, "976": 1 },
+    // Mesure faite sur le jeu de données lui-même, appartements uniquement.
+    carrezRatio: __CARREZ_RATIO__,
+    carrezLots: __CARREZ_LOTS__
+  },
+
+  /* --- DONNÉE : taux de crédit ------------------------------------------ */
+  credit: {
+    nature: "DONNEE",
+    source: "Baromètre de courtage Pretto",
+    date: "août 2026",
+    parDuree: { 15: 3.33, 20: 3.44, 25: 3.52 },
+    // Contrôle de cohérence toutes durées confondues.
+    controle: { taux: 3.30, source: "Observatoire Crédit Logement / CSA", date: "juillet 2026" }
+  },
+
+  /* --- RÈGLE : droits de mutation à titre onéreux ----------------------- */
+  dmto: {
+    nature: "REGLE",
+    source: "Article 1594 D du CGI",
+    date: "situation au 1er février 2026",
+    courant: 6.32,
+    reduit: 5.81,      // départements n'ayant pas voté la hausse de 2025
+    minimal: 5.09,     // Indre et Mayotte
+    departementsReduits: { "05":1,"06":1,"07":1,"16":1,"26":1,"27":1,"48":1,"60":1,"65":1,"71":1,"971":1 },
+    departementsMinimaux: { "36":1,"976":1 }
+  },
+
+  /* --- RÈGLE : émoluments réglementés du notaire ------------------------ */
+  notaire: {
+    nature: "REGLE",
+    source: "Tarif réglementé des notaires, barème par tranches, hors taxe",
+    date: "situation au 1er février 2026",
+    tranches: [
+      { jusqua:   650000, taux: 3.870 },   // jusqu'à 6 500 €
+      { jusqua:  1700000, taux: 1.596 },   // de 6 500 à 17 000 €
+      { jusqua:  6000000, taux: 1.064 },   // de 17 000 à 60 000 €
+      { jusqua: Infinity, taux: 0.799 }    // au-delà de 60 000 €
+    ],
+    tva: 20,
+    csiTaux: 0.10,        // contribution de sécurité immobilière
+    csiMinimum: 1500,     // 15 €, en centimes
+    debours: 120000       // forfait 1 200 €, en centimes — estimation
+  },
+
+  /* --- DONNÉE : marges de négociation ----------------------------------- */
+  negociation: {
+    nature: "DONNEE",
+    source: "Observatoire Interkab",
+    date: "premier trimestre 2026, publié le 1er mai 2026",
+    national: 5.3,
+    parCommune: {
+      "69381":2.8,"69382":2.8,"69383":2.8,"69384":2.8,"69385":2.8,
+      "69386":2.8,"69387":2.8,"69388":2.8,"69389":2.8,
+      "75101":3.8,"75102":3.8,"75103":3.8,"75104":3.8,"75105":3.8,"75106":3.8,
+      "75107":3.8,"75108":3.8,"75109":3.8,"75110":3.8,"75111":3.8,"75112":3.8,
+      "75113":3.8,"75114":3.8,"75115":3.8,"75116":3.8,"75117":3.8,"75118":3.8,
+      "75119":3.8,"75120":3.8,
+      "13201":3.8,"13202":3.8,"13203":3.8,"13204":3.8,"13205":3.8,"13206":3.8,
+      "13207":3.8,"13208":3.8,"13209":3.8,"13210":3.8,"13211":3.8,"13212":3.8,
+      "13213":3.8,"13214":3.8,"13215":3.8,"13216":3.8,
+      "31555":4.0, "59350":5.2, "34172":5.2, "33063":5.9, "67482":8.0, "44109":12.7
+    },
+    nomsVilles: {
+      "69381":"Lyon","75101":"Paris","13201":"Marseille","31555":"Toulouse",
+      "59350":"Lille","34172":"Montpellier","33063":"Bordeaux",
+      "67482":"Strasbourg","44109":"Nantes"
+    }
+  },
+
+  /* --- Ordre de grandeur : honoraires d'agence -------------------------- */
+  // Ce n'est ni une donnée mesurée ni une règle : c'est un ordre de grandeur,
+  // affiché comme tel. Le montant exact figure sur l'annonce, à la ligne
+  // « honoraires » ou « dont honoraires à charge acquéreur ».
+  agence: {
+    nature: "ORDRE_DE_GRANDEUR",
+    source: "fourchette usuelle des honoraires d'agence en France, 4 à 8 % du prix affiché",
+    repere: 5.0
+  },
+
+  /* --- RÈGLE : plus-value immobilière des particuliers ------------------ */
+  plusValue: {
+    nature: "REGLE",
+    source: "Articles 150 U et suivants du CGI, BOFiP BOI-RFPI-PVI ; surtaxe : article 1609 nonies G du CGI",
+    date: "situation au 1er février 2026",
+    tauxIR: 19,
+    tauxPS: 17.2,
+    fraisAcquisitionForfait: 7.5,   // % du prix d'acquisition
+    travauxForfait: 15,             // % du prix d'acquisition, au-delà de 5 ans
+    travauxForfaitDetention: 5,     // années
+    // Abattements pour durée de détention, en % par année révolue.
+    abattementIR: { debut: 6, parAn: 6, deLa: 6, aLa: 21, vingtDeuxieme: 4, exoneration: 22 },
+    abattementPS: { parAn: 1.65, deLa: 6, aLa: 21, vingtDeuxieme: 1.60, puis: 9, jusqua: 30, exoneration: 30 },
+    // Barème de la surtaxe, reproduit de l'article 1609 nonies G du CGI.
+    // Les coefficients de lissage sont indispensables : sans eux, un euro de
+    // plus-value supplémentaire coûterait des centaines d'euros d'impôt.
+    surtaxe: [
+      { max:  60000, taux: 2, lissage: { pivot:  60000, coef: 1/20  } },
+      { max: 100000, taux: 2, lissage: null },
+      { max: 110000, taux: 3, lissage: { pivot: 110000, coef: 1/10  } },
+      { max: 150000, taux: 3, lissage: null },
+      { max: 160000, taux: 4, lissage: { pivot: 160000, coef: 15/100 } },
+      { max: 200000, taux: 4, lissage: null },
+      { max: 210000, taux: 5, lissage: { pivot: 210000, coef: 20/100 } },
+      { max: 250000, taux: 5, lissage: null },
+      { max: 260000, taux: 6, lissage: { pivot: 260000, coef: 25/100 } },
+      { max: Infinity, taux: 6, lissage: null }
+    ],
+    seuilSurtaxe: 50000
+  },
+
+  /* --- RÈGLE : fiscalité locative, régimes micro uniquement ------------- */
+  locatif: {
+    nature: "REGLE",
+    source: "CGI articles 32 et 50-0 ; loi Le Meur du 19 novembre 2024 ; LFSS 2026 (loi n° 2025-1403 du 30 décembre 2025)",
+    date: "revenus 2026",
+    // Le plafond des régimes à 50 % est passé de 77 700 € à 83 600 € pour les
+    // revenus 2026 (revalorisation triennale).
+    regimes: {
+      nue:            { nom: "Location nue, micro-foncier",        abattement: 30, plafond: 15000, ps: 17.2 },
+      meubleLongue:   { nom: "Meublé longue durée, micro-BIC",     abattement: 50, plafond: 83600, ps: 18.6 },
+      tourismeClasse: { nom: "Meublé de tourisme classé",          abattement: 50, plafond: 83600, ps: 18.6 },
+      tourismeNon:    { nom: "Meublé de tourisme non classé",      abattement: 30, plafond: 15000, ps: 18.6 }
+    },
+    // Les prélèvements sociaux sur les bénéfices de location meublée sont
+    // passés à 18,6 % ; la location nue et les plus-values restent à 17,2 %.
+    tranchesIR: [0, 11, 30, 41, 45]
+  },
+
+  /* --- Repère HCSF ------------------------------------------------------ */
+  hcsf: {
+    nature: "REGLE",
+    source: "Haut Conseil de stabilité financière, décision D-HCSF-2021-7",
+    tauxEffortMax: 35,     // assurance comprise
+    dureeMax: 25           // années
+  },
+
+  /* --- Identité de l'outil ---------------------------------------------- */
+  outil: {
+    version: "__VERSION__",
+    datePublication: "__DATE_PUBLICATION__",
+    perimeMois: 9,         // au-delà, bandeau de péremption
+    marque: "Repère",
+    // Renvoi vers le compte de la marque. À remplir : tant que la chaîne est
+    // vide, la signature s'affiche sans lien. Un href n'émet aucune requête
+    // tant qu'il n'est pas cliqué.
+    compte: "",
+    compteLibelle: ""
+  }
+};
+
+/* Noms des départements — Code officiel géographique de l'INSEE. */
+var DEPARTEMENTS = (function(){
+  var m = {}, t = "__DEPARTEMENTS__".split("|");
+  for (var i = 0; i < t.length; i++){
+    var j = t[i].indexOf(":");
+    m[t[i].slice(0, j)] = t[i].slice(j + 1);
+  }
+  return m;
+})();
+
+/* ==========================================================================
+   2. DONNÉES EMBARQUÉES
+   Table compacte des agrégats communaux. N'y figurent que des agrégats :
+   effectifs et quantiles par commune et par type de bien. Aucune transaction,
+   aucune adresse, aucune parcelle — la Licence Ouverte Etalab interdit toute
+   ré-identification, et cette contrainte est structurante.
+   ========================================================================== */
+var BLOB = `__BLOB__`;
+
+/* ==========================================================================
+   3. DÉCODAGE ET INDEX
+   Le blob est décodé une fois au chargement, puis l'index de recherche est
+   construit dans la foulée — jamais à la frappe.
+   ========================================================================== */
+var B64 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
+var B64I = (function(){ var m = {}; for (var i = 0; i < 64; i++) m[B64.charAt(i)] = i; return m; })();
+
+function d64(s){
+  var n = 0;
+  for (var i = 0; i < s.length; i++) n = n * 64 + (B64I[s.charAt(i)] | 0);
+  return n;
+}
+function d36(s){ var n = parseInt(s, 36); return isFinite(n) ? n : 0; }
+
+var LARGEUR_BLOC = 14;
+var PAS_PRIX = 10;                       // les prix sont stockés en dizaines d'euros
+var TYPES_BLOC = ["A", "P", "G"];        // appartement · maison petit terrain · maison grand terrain
+var FENETRES_BLOC = [24, 36, 48];        // mois effectivement couverts
+
+/* Décode la suite de blocs collés d'un enregistrement. */
+function decoderBlocs(s){
+  var out = {};
+  for (var i = 0; i + LARGEUR_BLOC <= s.length; i += LARGEUR_BLOC){
+    var b = s.substr(i, LARGEUR_BLOC);
+    var tete = B64I[b.charAt(0)] | 0;
+    // Les quantiles sont convertis en centimes dès le décodage : toutes les
+    // valeurs monétaires internes sont manipulées en centimes entiers.
+    var p10 = d64(b.substr(4, 2)) * PAS_PRIX * 100;
+    var q = [p10];
+    for (var k = 0; k < 4; k++) q.push(q[k] + d64(b.substr(6 + k * 2, 2)) * PAS_PRIX * 100);
+    out[TYPES_BLOC[Math.floor(tete / 3)]] = {
+      n: d64(b.substr(1, 3)),
+      q: q,
+      mois: FENETRES_BLOC[tete % 3]
+    };
+  }
+  return out;
+}
+
+var COMMUNES = [];          // { nom, insee, dep, cps[], pop, blocs }
+var PAR_INSEE = {};
+var DEP_BLOCS = {};
+
+/* Retire les accents, la casse, les tirets, les apostrophes et les espaces.
+   « Saint-Étienne », « saint etienne » et « SAINTETIENNE » donnent la même clé. */
+function normaliser(s){
+  return s.normalize ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : s;
+}
+function cleNom(s){
+  return normaliser(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+/* Seconde clé, sans les articles : « Le Havre » se trouve en tapant « havre ». */
+var ARTICLES = /\b(le|la|les|l|de|du|des|d|sur|sous|en|aux|au|et|the)\b/g;
+function cleSansArticles(s){
+  return normaliser(s).toLowerCase().replace(/[^a-z0-9]+/g, " ")
+         .replace(ARTICLES, " ").replace(/[^a-z0-9]/g, "");
+}
+
+function departementDe(insee){
+  return insee.substr(0, 2) === "97" ? insee.substr(0, 3) : insee.substr(0, 2);
+}
+
+function chargerDonnees(){
+  var sections = BLOB.split("\n@\n");
+  var lignes = sections[0].split("\n");
+  var precedent = "";
+  for (var i = 0; i < lignes.length; i++){
+    var p = lignes[i].split(";");
+    if (p.length < 4) continue;
+    // Le nom partage un préfixe avec l'entrée précédente : le premier signe
+    // donne la longueur de ce préfixe, en base 36.
+    var k = d36(p[0].charAt(0));
+    var nom = precedent.substring(0, k) + p[0].substring(1);
+    precedent = nom;
+
+    var insee = p[1].substring(0, 5);
+    var cps = [];
+    if (p[2]){
+      var bruts = p[2].split(",");
+      var base = d36(bruts[0]);
+      cps.push(base);
+      for (var j = 1; j < bruts.length; j++) cps.push(base + d36(bruts[j]));
+    }
+    var c = {
+      nom: nom,
+      insee: insee,
+      dep: departementDe(insee),
+      cps: cps,
+      pop: d36(p[3]) * 100,
+      blocs: decoderBlocs(p[1].substring(5)),
+      cle: cleNom(nom),
+      cle2: cleSansArticles(nom)
+    };
+    COMMUNES.push(c);
+    PAR_INSEE[insee] = c;
+  }
+  var ldep = (sections[1] || "").split("\n");
+  for (var d = 0; d < ldep.length; d++){
+    var q = ldep[d].split(";");
+    if (q.length < 2) continue;
+    DEP_BLOCS[q[0]] = decoderBlocs(q[1]);
+  }
+  // Les plus peuplées d'abord : à saisie égale, c'est presque toujours celle
+  // que l'utilisateur cherche. Le département reste affiché pour lever le doute.
+  COMMUNES.sort(function(a, b){ return b.pop - a.pop; });
+}
+
+/* Recherche. Aucune sélection automatique, même sur une correspondance unique :
+   un code postal peut couvrir plusieurs communes, et une commune porter
+   plusieurs codes postaux. */
+function chercher(saisie, limite){
+  var brut = String(saisie || "").trim();
+  if (brut.length < 1) return [];
+  var res = [];
+  var cp = /^\d{2,5}$/.test(brut) ? brut : null;
+  var k = cleNom(brut), k2 = cleSansArticles(brut);
+  if (!cp && k.length < 1) return [];
+
+  for (var i = 0; i < COMMUNES.length && res.length < 400; i++){
+    var c = COMMUNES[i], score = -1;
+    if (cp){
+      for (var j = 0; j < c.cps.length; j++){
+        var s = String(c.cps[j]);
+        while (s.length < 5) s = "0" + s;
+        if (s.indexOf(cp) === 0){ score = 0; break; }
+      }
+      if (score < 0 && c.insee.indexOf(cp) === 0) score = 1;
+    } else {
+      if (c.cle.indexOf(k) === 0) score = 0;
+      else if (k2 && c.cle2.indexOf(k2) === 0) score = 1;
+      else if (c.cle.indexOf(k) > 0) score = 2;
+      else if (k2 && c.cle2.indexOf(k2) > 0) score = 3;
+    }
+    if (score >= 0) res.push({ c: c, score: score });
+  }
+  res.sort(function(a, b){ return a.score - b.score || b.c.pop - a.c.pop; });
+  return res.slice(0, limite || 12).map(function(r){ return r.c; });
+}
+
+/* ==========================================================================
+   4. FORMATAGE
+   Un formateur unique intercepte toute valeur non finie et affiche un tiret.
+   Jamais de NaN, d'Infinity, d'undefined ni de « -0 € » à l'écran.
+   Format français : séparateur de milliers par espace insécable, virgule
+   décimale, symbole € après le nombre. Aucune décimale sur les euros affichés,
+   deux sur les taux.
+   ========================================================================== */
+var FINE = "\u202f";        // espace fine insécable, séparateur de milliers
+var INSEC = "\u00a0";       // espace insécable, avant le symbole
+var MOINS = "\u2212";       // vrai signe moins
+
+function fini(x){ return typeof x === "number" && isFinite(x); }
+
+function grouper(entier){
+  var s = String(entier), out = "";
+  for (var i = s.length; i > 0; i -= 3) out = s.substring(Math.max(0, i - 3), i) + (out ? FINE + out : "");
+  return out;
+}
+
+/* Nombre décimal. `dec` chiffres après la virgule, virgule décimale. */
+function nombre(x, dec){
+  if (!fini(x)) return "—";
+  dec = dec || 0;
+  var neg = x < 0;
+  var v = Math.abs(x);
+  var f = v.toFixed(dec);
+  var parts = f.split(".");
+  var entier = grouper(parts[0]);
+  // Un arrondi peut ramener à zéro une valeur négative : on n'affiche pas « -0 ».
+  if (parseFloat(f) === 0) neg = false;
+  return (neg ? MOINS : "") + entier + (parts[1] ? "," + parts[1] : "");
+}
+
+/* Montant, à partir de centimes entiers. Aucune décimale. */
+function euro(cents){
+  if (!fini(cents)) return "—";
+  return nombre(Math.round(cents) / 100, 0) + INSEC + "€";
+}
+/* Montant signé, doublé du mot et de la forme : la couleur ne porte jamais
+   seule l'information. */
+function fluxHTML(cents, motEntre, motSort){
+  if (!fini(cents)) return '<span>—</span>';
+  var positif = Math.round(cents) >= 0;
+  return '<span class="flux ' + (positif ? "entre" : "sort") + '">' +
+         '<span class="forme">' + (positif ? "+" : MOINS) + '</span>' + INSEC +
+         euro(Math.abs(cents)) + ' <span class="faible">' +
+         (positif ? (motEntre || "entre") : (motSort || "sort")) + '</span></span>';
+}
+function taux(x){ return fini(x) ? nombre(x, 2) + INSEC + "%" : "—"; }
+function m2(x){ return fini(x) ? nombre(x, 0) + INSEC + "m²" : "—"; }
+function euroM2(cents){ return fini(cents) ? nombre(Math.round(cents) / 100, 0) + INSEC + "€/m²" : "—"; }
+
+/* Cohérence de somme. Si l'écran affiche des postes et leur total, la somme
+   des postes arrondis doit être exactement égale au total arrondi : on calcule
+   le total, puis on répercute le résidu sur le poste le plus élevé. Un écart
+   de 2 € entre une addition et son total fait douter de tout le reste. */
+function accorderPostes(postes){
+  var total = 0, i;
+  for (i = 0; i < postes.length; i++) total += postes[i].cents;
+  var totalArrondi = Math.round(total / 100) * 100;
+  var arrondis = postes.map(function(p){
+    return { nom: p.nom, sous: p.sous, cents: Math.round(p.cents / 100) * 100 };
+  });
+  var somme = 0;
+  for (i = 0; i < arrondis.length; i++) somme += arrondis[i].cents;
+  var residu = totalArrondi - somme;
+  if (residu !== 0 && arrondis.length){
+    var iMax = 0;
+    for (i = 1; i < arrondis.length; i++){
+      if (Math.abs(arrondis[i].cents) > Math.abs(arrondis[iMax].cents)) iMax = i;
+    }
+    arrondis[iMax].cents += residu;
+  }
+  return { postes: arrondis, total: totalArrondi };
+}
+
+/* Nettoyage d'une saisie numérique : espaces, espaces insécables, points,
+   virgules et symbole €. « 250 000 € », « 250000 » et « 250.000 » doivent
+   tous fonctionner. */
+function lireNombre(brut){
+  if (brut === null || brut === undefined) return NaN;
+  var s = String(brut).replace(/[\s\u00a0\u202f\u2009]/g, "").replace(/[€%]/g, "");
+  if (!s) return NaN;
+  // Un séparateur décimal isolé suivi d'au plus deux chiffres est décimal ;
+  // sinon les points et virgules séparent les milliers.
+  var m = s.match(/^(-?[\d.,]*?)([.,](\d{1,2}))$/);
+  if (m && /[.,]/.test(m[1])) s = m[1].replace(/[.,]/g, "") + "." + m[3];
+  else if (m && m[1] !== "" && m[1] !== "-") s = m[1] + "." + m[3];
+  else s = s.replace(/[.,]/g, "");
+  var v = parseFloat(s);
+  return isFinite(v) ? v : NaN;
+}
+
+/* ==========================================================================
+   5. LE MOTEUR
+   Toutes les valeurs monétaires sont manipulées en centimes entiers.
+   L'arrondi n'intervient qu'à l'affichage.
+   ========================================================================== */
+
+/* --- Choix du jeu de quantiles ----------------------------------------- */
+/* Un appartement se compare aux appartements, une maison aux maisons, et une
+   maison de plein pied sur 2 000 m² ne se compare pas à une maison de ville :
+   le prix au m² habitable d'une maison est en grande partie un prix de
+   terrain déguisé. */
+function clefType(type, terrain){
+  if (type === "appartement") return "A";
+  return (fini(terrain) && terrain >= 500) ? "G" : "P";
+}
+
+/* Renvoie le profil applicable, et dit d'où il vient. */
+function profilDe(insee, type, terrain){
+  var dep = departementDe(insee);
+  if (REF.ventes.departementsAbsents[dep]){
+    return { etat: "departement_absent", dep: dep };
+  }
+  var cle = clefType(type, terrain);
+  var c = PAR_INSEE[insee];
+  var b = c && c.blocs[cle];
+  if (b && b.n >= 30) return { etat: "ok", q: b.q, n: b.n, mois: b.mois, niveau: "commune" };
+  if (b && b.n >= 10) return { etat: "faible", q: b.q, n: b.n, mois: b.mois, niveau: "commune" };
+  var d = DEP_BLOCS[dep] && DEP_BLOCS[dep][cle];
+  if (d) return { etat: "repli", q: d.q, n: d.n, mois: d.mois, niveau: "departement", dep: dep };
+  return { etat: "indisponible", dep: dep };
+}
+
+/* --- Rang percentile ---------------------------------------------------- */
+/* Interpolation linéaire par morceaux sur les cinq quantiles. Chaque
+   dénominateur est testé : dans une petite commune, deux quantiles consécutifs
+   peuvent être égaux. */
+function rangPercentile(prix, q){
+  if (!fini(prix) || !q) return NaN;
+  var p10 = q[0], p25 = q[1], p50 = q[2], p75 = q[3], p90 = q[4];
+  function segment(v, bas, haut, rBas, rHaut){
+    var largeur = haut - bas;
+    // Quantiles égaux : pas de division, on rend le milieu du segment de rang.
+    if (!(largeur > 0)) return (rBas + rHaut) / 2;
+    return rBas + (rHaut - rBas) * (v - bas) / largeur;
+  }
+  var rang;
+  if (prix <= p10)      rang = p10 > 0 ? 10 * (prix / p10) : 10;
+  else if (prix <= p25) rang = segment(prix, p10, p25, 10, 25);
+  else if (prix <= p50) rang = segment(prix, p25, p50, 25, 50);
+  else if (prix <= p75) rang = segment(prix, p50, p75, 50, 75);
+  else if (prix <= p90) rang = segment(prix, p75, p90, 75, 90);
+  else {
+    // Au-delà du p90, la largeur du segment précédent sert d'unité.
+    var largeur = p90 - p75;
+    rang = largeur > 0 ? 90 + 10 * (prix - p90) / largeur : 98;
+  }
+  if (!fini(rang)) return NaN;
+  return Math.max(2, Math.min(98, rang));   // plancher 2, plafond 98
+}
+
+/* --- Frais d'acquisition ------------------------------------------------ */
+/* Émoluments par tranches × 1,20 + prix × taux DMTO du département
+   + max(15 €, prix × 0,10 %) + débours forfaitaires. */
+function tauxDmto(dep, primo){
+  if (REF.dmto.departementsMinimaux[dep]) return REF.dmto.minimal;
+  if (primo) return REF.dmto.reduit;   // primo-accédant en résidence principale
+  if (REF.dmto.departementsReduits[dep]) return REF.dmto.reduit;
+  return REF.dmto.courant;
+}
+
+function emolumentsHT(prixCents){
+  if (!fini(prixCents) || prixCents <= 0) return 0;
+  var total = 0, plancher = 0;
+  for (var i = 0; i < REF.notaire.tranches.length; i++){
+    var t = REF.notaire.tranches[i];
+    var haut = Math.min(prixCents, t.jusqua);
+    if (haut > plancher) total += (haut - plancher) * t.taux / 100;
+    plancher = t.jusqua;
+    if (prixCents <= t.jusqua) break;
+  }
+  return total;
+}
+
+function fraisAcquisition(prixCents, dep, primo){
+  var tdm = tauxDmto(dep, primo);
+  var ht = emolumentsHT(prixCents);
+  var postes = [
+    { nom: "Émoluments du notaire",
+      sous: "Barème réglementé par tranches, identique chez tous les notaires. " +
+            euro(ht) + " hors taxe, plus 20 % de TVA.",
+      cents: ht * (1 + REF.notaire.tva / 100) },
+    { nom: "Droits de mutation (DMTO)",
+      sous: "Impôt versé au département et à la commune, " + taux(tdm) + " du prix. " +
+            "C'est le plus gros poste, et il ne va pas au notaire.",
+      cents: prixCents * tdm / 100 },
+    { nom: "Contribution de sécurité immobilière",
+      sous: "Taxe de publication au service de la publicité foncière, 0,10 % du prix, 15 € au minimum.",
+      cents: Math.max(REF.notaire.csiMinimum, prixCents * REF.notaire.csiTaux / 100) },
+    { nom: "Débours et formalités",
+      sous: "Sommes avancées par le notaire pour les documents d'urbanisme, l'état civil, le cadastre. Forfait, estimation.",
+      cents: REF.notaire.debours }
+  ];
+  var acc = accorderPostes(postes);
+  return {
+    postes: acc.postes, total: acc.total, tauxDmto: tdm,
+    part: prixCents > 0 ? acc.total / prixCents * 100 : NaN
+  };
+}
+
+/* --- Crédit ------------------------------------------------------------- */
+/* Convention française : taux proportionnel, i = taux annuel / 12.
+   Ce n'est pas un taux actuariel — c'est dit dans les limites. */
+function mensualite(capitalCents, tauxAnnuel, annees){
+  var n = Math.round(annees * 12);
+  if (!fini(capitalCents) || capitalCents <= 0) return 0;
+  if (!(n > 0)) return NaN;                       // durée nulle : pas de mensualité
+  var i = tauxAnnuel / 100 / 12;
+  if (!fini(i)) return NaN;
+  if (i === 0) return capitalCents / n;           // branche explicite du taux nul
+  var facteur = 1 - Math.pow(1 + i, -n);
+  if (!(facteur > 0)) return NaN;
+  return capitalCents * i / facteur;
+}
+
+/* Les intérêts se calculent chaque mois sur le capital restant dû, jamais sur
+   le capital initial. La dernière échéance est ajustée pour que le capital
+   restant dû final vaille exactement zéro. */
+function amortissement(capitalCents, tauxAnnuel, annees){
+  var n = Math.round(annees * 12);
+  var m = mensualite(capitalCents, tauxAnnuel, annees);
+  if (!fini(m) || !(n > 0)) return null;
+  var i = tauxAnnuel / 100 / 12;
+  var restant = Math.round(capitalCents);
+  var mCents = Math.round(m);
+  var lignes = [], totalInterets = 0;
+  for (var k = 1; k <= n; k++){
+    var interets = Math.round(restant * i);
+    var part = mCents - interets;
+    var echeance = mCents;
+    if (k === n || part >= restant){
+      // Dernière échéance : on solde exactement, au centime près.
+      part = restant;
+      echeance = part + interets;
+    }
+    restant -= part;
+    totalInterets += interets;
+    lignes.push({ mois: k, echeance: echeance, interets: interets, capital: part, restant: restant });
+    if (restant <= 0){ restant = 0; break; }
+  }
+  return {
+    lignes: lignes, mensualite: mCents, nbEcheances: lignes.length,
+    totalInterets: totalInterets,
+    totalVerse: totalInterets + Math.round(capitalCents),
+    restantFinal: restant
+  };
+}
+
+/* Prime constante sur le capital initial, hors de l'amortissement : elle ne
+   rembourse aucun capital. Elle s'ajoute séparément à la mensualité et au
+   coût total. Certains contrats la calculent sur le capital restant dû —
+   c'est signalé dans les limites. */
+function primeAssurance(capitalCents, tauxAssurance){
+  if (!fini(capitalCents) || !fini(tauxAssurance)) return NaN;
+  return capitalCents * tauxAssurance / 100 / 12;
+}
+
+/* La part d'intérêts dans la première mensualité change complètement de sens
+   selon la durée : elle est calculée, jamais écrite en dur. */
+function partInteretsPremiereEcheance(capitalCents, tauxAnnuel, annees){
+  var m = mensualite(capitalCents, tauxAnnuel, annees);
+  if (!fini(m) || m <= 0) return NaN;
+  var interets = capitalCents * (tauxAnnuel / 100 / 12);
+  return interets / m * 100;
+}
+
+/* --- Plus-value immobilière des particuliers ---------------------------- */
+function abattementIR(annees){
+  if (!(annees >= 6)) return 0;
+  if (annees >= 22) return 100;
+  if (annees <= 21) return 6 * (annees - 5);      // 6 %/an de la 6e à la 21e
+  return 96 + 4;                                  // 4 % la 22e année
+}
+function abattementPS(annees){
+  if (!(annees >= 6)) return 0;
+  if (annees >= 30) return 100;
+  if (annees <= 21) return 1.65 * (annees - 5);   // 1,65 %/an de la 6e à la 21e
+  if (annees < 23) return 26.4 + 1.60;            // 1,60 % la 22e année
+  return 28 + 9 * (annees - 22);                  // 9 %/an de la 23e à la 30e
+}
+
+/* Barème de l'article 1609 nonies G du CGI, coefficients de lissage compris. */
+function surtaxePlusValue(pvEuros){
+  if (!fini(pvEuros) || pvEuros <= REF.plusValue.seuilSurtaxe) return 0;
+  var b = REF.plusValue.surtaxe;
+  for (var i = 0; i < b.length; i++){
+    if (pvEuros <= b[i].max){
+      var t = b[i].taux / 100 * pvEuros;
+      if (b[i].lissage) t -= (b[i].lissage.pivot - pvEuros) * b[i].lissage.coef;
+      return Math.max(0, t);
+    }
+  }
+  return 0;
+}
+
+function impotPlusValue(o){
+  var prixAchat = o.prixAchatCents, annees = o.annees;
+  // Prix d'acquisition majoré : frais réels s'ils sont connus, sinon forfait
+  // de 7,5 %. Forfait travaux de 15 % au-delà de 5 ans de détention.
+  var frais = fini(o.fraisReelsCents) ? o.fraisReelsCents
+            : prixAchat * REF.plusValue.fraisAcquisitionForfait / 100;
+  var forfaitTravaux = annees > REF.plusValue.travauxForfaitDetention
+                     ? prixAchat * REF.plusValue.travauxForfait / 100 : 0;
+  var travaux = Math.max(fini(o.travauxCents) ? o.travauxCents : 0, forfaitTravaux);
+  var majore = prixAchat + frais + travaux;
+  var brute = o.prixVenteCents - majore - (fini(o.fraisVenteCents) ? o.fraisVenteCents : 0);
+  if (!fini(brute)) return null;
+  if (brute <= 0){
+    return { brute: brute, baseIR: 0, basePS: 0, ir: 0, ps: 0, surtaxe: 0, total: 0,
+             abIR: abattementIR(annees), abPS: abattementPS(annees),
+             majore: majore, forfaitTravaux: forfaitTravaux, frais: frais };
+  }
+  var abIR = abattementIR(annees), abPS = abattementPS(annees);
+  var baseIR = brute * (1 - abIR / 100);
+  var basePS = brute * (1 - abPS / 100);
+  var ir = baseIR * REF.plusValue.tauxIR / 100;
+  var ps = basePS * REF.plusValue.tauxPS / 100;
+  var sur = surtaxePlusValue(baseIR / 100) * 100;   // le barème raisonne en euros
+  return { brute: brute, baseIR: baseIR, basePS: basePS, ir: ir, ps: ps, surtaxe: sur,
+           total: ir + ps + sur, abIR: abIR, abPS: abPS,
+           majore: majore, forfaitTravaux: forfaitTravaux, frais: frais };
+}
+
+/* --- Fiscalité locative, régimes micro uniquement ----------------------- */
+/* Le régime réel n'est pas couvert : un plan d'amortissement par composants
+   dans un fichier hors ligne produirait des chiffres faux sur une déclaration. */
+function impotLocatif(regimeCle, revenuBrutAnnuelCents, tmi){
+  var r = REF.locatif.regimes[regimeCle];
+  if (!r || !fini(revenuBrutAnnuelCents)) return null;
+  var plafondCents = r.plafond * 100;
+  var depasse = revenuBrutAnnuelCents > plafondCents;
+  var base = revenuBrutAnnuelCents * (1 - r.abattement / 100);
+  var ir = base * (fini(tmi) ? tmi : 0) / 100;
+  var ps = base * r.ps / 100;
+  return { regime: r, base: base, ir: ir, ps: ps, total: ir + ps,
+           depassePlafond: depasse, plafondCents: plafondCents };
+}
+
+/* ==========================================================================
+   6. ÉTAT ET COMPOSANTS
+   Rien n'est jamais perdu en changeant d'écran : tout vit dans ETAT, y
+   compris les saisies brutes non encore validées.
+   Aucune dépendance au stockage du navigateur : il n'est pas utilisé.
+   ========================================================================== */
+var ETAT = {
+  ecran: "accueil",
+  bien: { insee: null, type: "appartement", prix: "", surface: "", terrain: "" },
+  // §4 — part du prix affiché que l'on suppose ne pas verser au vendeur.
+  negociation: 0,
+  projet: null,
+  branches: {}          // rempli au premier passage sur chaque branche
+};
+
+var app = document.getElementById("app");
+
+function ech(s){
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* --- Curseurs ----------------------------------------------------------- */
+/* Une HYPOTHÈSE, et rien d'autre : curseur + champ numérique éditable, valeur
+   de départ annoncée comme point de départ. Une RÈGLE ne passe jamais par ici. */
+var CURSEURS = {};
+
+function positionRepere(v, min, max){
+  var p = (max > min) ? (v - min) / (max - min) : 0;
+  p = Math.max(0, Math.min(1, p));
+  // Le centre de la pastille ne parcourt pas toute la largeur : on compense
+  // par son propre diamètre, sinon les repères sont décalés aux extrémités.
+  return "calc(" + (p * 100).toFixed(3) + "% + " + ((0.5 - p) * 26).toFixed(2) + "px)";
+}
+
+/* Attribue à chaque repère un rang vertical pour que deux étiquettes voisines
+   ne se recouvrent pas. La largeur d'une étiquette est estimée d'après sa
+   longueur : c'est approximatif, mais il suffit de séparer ce qui se gêne. */
+function disposerReperes(reperes, cfg){
+  var visibles = (reperes || []).filter(function(r){
+    return fini(r.v) && r.v >= cfg.min && r.v <= cfg.max;
+  }).map(function(r){
+    return { v: r.v, label: r.label, attention: r.attention,
+             p: (cfg.max > cfg.min) ? (r.v - cfg.min) / (cfg.max - cfg.min) : 0 };
+  }).sort(function(a, b){ return a.p - b.p; });
+
+  var derniers = [];      // fin occupée de chaque rang, en fraction de piste
+  for (var i = 0; i < visibles.length; i++){
+    var r = visibles[i];
+    var demi = (String(r.label).length * 6.4) / 620 / 2;   // demi-largeur estimée
+    var debut = r.p - demi, fin = r.p + demi;
+    var rang = 0;
+    while (rang < 3 && derniers[rang] !== undefined && debut < derniers[rang]) rang++;
+    if (rang > 2) rang = 2;
+    derniers[rang] = fin;
+    r.rang = rang;
+  }
+  return { liste: visibles, rangs: derniers.length };
+}
+
+function htmlCurseur(cfg){
+  CURSEURS[cfg.id] = cfg;
+  var v = cfg.valeur;
+  var place = disposerReperes(cfg.reperes, cfg);
+  var reperes = place.liste.map(function(r){
+    var cote = r.p < 0.12 ? " gauche" : r.p > 0.88 ? " droite" : "";
+    return '<span class="repere' + (r.attention ? " debord" : "") + cote + " rang" + r.rang + '"' +
+           ' style="left:' + positionRepere(r.v, cfg.min, cfg.max) + '"' +
+           '><i></i><span>' + ech(r.label) + '</span></span>';
+  }).join("");
+  var classePiste = place.rangs >= 3 ? " rangs3" : place.rangs === 2 ? " rangs2" : "";
+  return '<div class="curseur">' +
+      '<div class="tete"><span class="nom">' + ech(cfg.nom) + '</span>' +
+      '<span class="valeur"><input type="text" inputmode="decimal" data-champ="' + cfg.id + '"' +
+      ' value="' + ech(cfg.affiche ? cfg.affiche(v) : nombre(v, cfg.decimales || 0)) + '"' +
+      ' aria-label="' + ech(cfg.nom) + ', valeur"></span>' +
+      (cfg.unite ? '<span class="unite">' + ech(cfg.unite) + '</span>' : '') +
+      '</div>' +
+      (cfg.aide ? '<p class="depart">' + cfg.aide + '</p>' : '') +
+      '<p class="depart">Point de départ. Fais-le bouger.</p>' +
+      '<div class="piste' + classePiste + '">' +
+        '<input type="range" data-curseur="' + cfg.id + '" min="' + cfg.min + '" max="' + cfg.max +
+        '" step="' + cfg.pas + '" value="' + v + '" aria-label="' + ech(cfg.nom) + '">' +
+        reperes +
+      '</div></div>';
+}
+
+/* --- Visualisation 1 : distribution locale ------------------------------ */
+/* La courbe est directement déduite des cinq quantiles : entre deux quantiles
+   consécutifs, la densité vaut la masse de l'intervalle divisée par sa
+   largeur. Rien n'est inventé au-delà de ce que les quantiles disent. */
+function svgDistribution(q, prix, largeur){
+  var L = largeur || 660, H = 190, marge = 26;
+  var p10 = q[0], p25 = q[1], p50 = q[2], p75 = q[3], p90 = q[4];
+  var queue = Math.max(p25 - p10, p90 - p75, (p90 - p10) * 0.25, 1);
+  var xMin = Math.max(0, p10 - queue), xMax = p90 + queue;
+  if (fini(prix)){ xMin = Math.min(xMin, prix - queue * 0.4); xMax = Math.max(xMax, prix + queue * 0.4); }
+  if (!(xMax > xMin)) xMax = xMin + 1;
+
+  var bornes = [xMin, p10, p25, p50, p75, p90, xMax];
+  var masses = [0.10, 0.15, 0.25, 0.25, 0.15, 0.10];
+  function densite(x){
+    for (var i = 0; i < 6; i++){
+      if (x >= bornes[i] && x <= bornes[i + 1]){
+        var w = bornes[i + 1] - bornes[i];
+        return w > 0 ? masses[i] / w : 0;
+      }
+    }
+    return 0;
+  }
+  var N = 130, brut = [], i;
+  for (i = 0; i <= N; i++) brut.push(densite(xMin + (xMax - xMin) * i / N));
+  // Lissage par moyenne glissante : la densité par paliers est exacte mais
+  // illisible ; le lissage ne déplace ni les quantiles ni la position du bien.
+  var lisse = [], r = 6;
+  for (i = 0; i <= N; i++){
+    var s = 0, c = 0;
+    for (var j = Math.max(0, i - r); j <= Math.min(N, i + r); j++){ s += brut[j]; c++; }
+    lisse.push(s / c);
+  }
+  var dMax = Math.max.apply(null, lisse) || 1;
+  function X(x){ return marge + (L - 2 * marge) * (x - xMin) / (xMax - xMin); }
+  function Y(d){ return H - 34 - (H - 60) * (d / dMax); }
+
+  var pts = [];
+  for (i = 0; i <= N; i++) pts.push(X(xMin + (xMax - xMin) * i / N).toFixed(1) + "," + Y(lisse[i]).toFixed(1));
+  var aire = "M" + X(xMin).toFixed(1) + "," + (H - 34) + " L" + pts.join(" L") + " L" + X(xMax).toFixed(1) + "," + (H - 34) + " Z";
+
+  // Bande interquartile : la moitié centrale des ventes.
+  var clip = '<clipPath id="cq"><rect x="' + X(p25) + '" y="0" width="' + Math.max(0, X(p75) - X(p25)) + '" height="' + H + '"/></clipPath>';
+
+  function trait(x, couleur, tiret){
+    return '<line x1="' + X(x).toFixed(1) + '" y1="18" x2="' + X(x).toFixed(1) + '" y2="' + (H - 34) +
+           '" stroke="' + couleur + '" stroke-width="1.5"' + (tiret ? ' stroke-dasharray="3 3"' : '') + '/>';
+  }
+  function etiquette(x, texte, couleur, poids){
+    var px = X(x), ancre = "middle";
+    if (px < marge + 32) ancre = "start"; else if (px > L - marge - 32) ancre = "end";
+    return '<text x="' + px.toFixed(1) + '" y="' + (H - 20) + '" font-size="11" text-anchor="' + ancre +
+           '" fill="' + couleur + '"' + (poids ? ' font-weight="640"' : '') + '>' + ech(texte) + '</text>';
+  }
+
+  var out = '<svg class="viz" viewBox="0 0 ' + L + ' ' + H + '" role="img" aria-label="Distribution des prix au m² dans la commune, et position du bien">' + clip +
+    '<path d="' + aire + '" fill="#e4e0d7"/>' +
+    '<g clip-path="url(#cq)"><path d="' + aire + '" fill="#cdc8bd"/></g>' +
+    '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#8c887e" stroke-width="1.5"/>' +
+    trait(p25, "#6f6b62", true) + trait(p50, "#4b4841", false) + trait(p75, "#6f6b62", true) +
+    etiquette(p25, "P25", "#6f6b62") + etiquette(p50, "médiane", "#4b4841", true) + etiquette(p75, "P75", "#6f6b62");
+
+  if (fini(prix) && prix >= xMin && prix <= xMax){
+    out += '<line x1="' + X(prix).toFixed(1) + '" y1="10" x2="' + X(prix).toFixed(1) + '" y2="' + (H - 34) +
+           '" stroke="#2f4bbf" stroke-width="3"/>' +
+           '<circle cx="' + X(prix).toFixed(1) + '" cy="10" r="5" fill="#2f4bbf"/>' +
+           '<text x="' + X(prix).toFixed(1) + '" y="' + (H - 4) + '" font-size="11.5" font-weight="700" text-anchor="' +
+           (X(prix) < marge + 40 ? "start" : X(prix) > L - marge - 40 ? "end" : "middle") +
+           '" fill="#2f4bbf">ce bien</text>';
+  }
+  return out + '</svg>';
+}
+
+/* --- Visualisation 2 : bascule intérêts / capital ----------------------- */
+function svgAmortissement(am, largeur){
+  if (!am || !am.lignes.length) return "";
+  var annees = [];
+  for (var i = 0; i < am.lignes.length; i++){
+    var a = Math.floor(i / 12);
+    if (!annees[a]) annees[a] = { interets: 0, capital: 0 };
+    annees[a].interets += am.lignes[i].interets;
+    annees[a].capital += am.lignes[i].capital;
+  }
+  var L = largeur || 660, H = 200, bas = 26, haut = 10;
+  var n = annees.length, w = (L - 12) / n, maxi = 0;
+  for (i = 0; i < n; i++) maxi = Math.max(maxi, annees[i].interets + annees[i].capital);
+  if (!(maxi > 0)) return "";
+  var out = '<svg class="viz" viewBox="0 0 ' + L + ' ' + H + '" role="img" aria-label="Répartition intérêts et capital, année par année">';
+  for (i = 0; i < n; i++){
+    var hi = (H - bas - haut) * annees[i].interets / maxi;
+    var hc = (H - bas - haut) * annees[i].capital / maxi;
+    var x = 6 + i * w, bw = Math.max(1, w - 2.5);
+    // Le capital est à toi : teinte de marque. Les intérêts sont le coût du
+    // crédit : gris. Les deux sont nommés dans la légende.
+    out += '<rect x="' + x.toFixed(1) + '" y="' + (H - bas - hc).toFixed(1) + '" width="' + bw.toFixed(1) +
+           '" height="' + hc.toFixed(1) + '" fill="#2f4bbf" rx="1.5"/>' +
+           '<rect x="' + x.toFixed(1) + '" y="' + (H - bas - hc - hi).toFixed(1) + '" width="' + bw.toFixed(1) +
+           '" height="' + hi.toFixed(1) + '" fill="#b8b3a8" rx="1.5"/>';
+    if (n <= 30 ? (i % 5 === 0 || i === n - 1) : (i % 10 === 0 || i === n - 1)){
+      out += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 9) + '" font-size="10.5" text-anchor="middle" fill="#8a867c">' + (i + 1) + '</text>';
+    }
+  }
+  return out + '<text x="6" y="' + (H - 9) + '" font-size="10.5" fill="#8a867c" text-anchor="start"></text></svg>' +
+    '<p class="faible" style="margin-top:4px">' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#2f4bbf;border-radius:2px;vertical-align:-1px"></span> capital remboursé &nbsp; ' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#b8b3a8;border-radius:2px;vertical-align:-1px"></span> intérêts versés &nbsp;· axe horizontal : années</p>';
+}
+
+/* --- Décompte en tableau ------------------------------------------------ */
+function htmlDecompte(acc, libelleTotal){
+  var l = acc.postes.map(function(p){
+    return '<tr><td>' + ech(p.nom) + (p.sous ? '<span class="sous">' + p.sous + '</span>' : '') +
+           '</td><td>' + euro(p.cents) + '</td></tr>';
+  }).join("");
+  return '<table class="decompte"><tbody>' + l + '</tbody>' +
+         '<tfoot><tr><td>' + ech(libelleTotal) + '</td><td>' + euro(acc.total) + '</td></tr></tfoot></table>';
+}
+
+/* ==========================================================================
+   7. BANDEAUX COMMUNS
+   ========================================================================== */
+function moisDepuis(dateISO){
+  var d = new Date(dateISO + "T00:00:00");
+  var maintenant = new Date();            // purement local, aucune requête
+  if (!fini(d.getTime())) return NaN;
+  return (maintenant.getFullYear() - d.getFullYear()) * 12 + (maintenant.getMonth() - d.getMonth());
+}
+
+function htmlDatage(){
+  var v = REF.ventes;
+  return '<div class="datage">' +
+    '<span><b>Ventes réelles</b> du 1er janvier 2024 au 31 décembre 2025</span>' +
+    '<span>' + nombre(v.ventesRetenues, 0) + ' ventes retenues</span>' +
+    '<span>Source : DVF, DGFiP · millésime du 5 avril 2026</span>' +
+    '</div>';
+}
+
+/* Bandeau de péremption : la date des données est écrite en dur et comparée
+   à la date du jour. Au-delà de neuf mois, on le dit. */
+function htmlPeremption(){
+  var m = moisDepuis(REF.ventes.millesime);
+  if (!fini(m) || m < REF.outil.perimeMois) return "";
+  return '<div class="avis attention"><span class="etiquette">Données anciennes</span>' +
+    'Ces données ont ' + nombre(m, 0) + ' mois — une version plus récente existe probablement. ' +
+    'La prochaine publication DVF était annoncée pour ' + ech(REF.ventes.prochainePublication) + '.</div>';
+}
+
+/* ==========================================================================
+   8. LES ÉCRANS
+   ========================================================================== */
+
+/* --- Accueil ------------------------------------------------------------ */
+function ecranAccueil(){
+  return htmlPeremption() +
+    '<h1>Tu regardes une annonce. Situe son prix.</h1>' +
+    '<p class="doux" style="font-size:1.06rem">Cet outil place le prix au m² du bien parmi les ventes réellement signées dans la même commune, pour le même type de bien, puis chiffre ce que l\'opération coûte selon ce que tu comptes en faire.</p>' +
+    htmlDatage() +
+    '<button class="bouton large" data-aller="bien">Commencer</button>' +
+    '<p class="faible" style="margin-top:20px">Cet outil éclaire, il ne tranche pas. Il ne prédit rien. Chaque chiffre qu\'il affiche dépend d\'hypothèses que tu choisis toi-même, et il te dit toujours lesquelles.</p>';
+}
+
+/* --- Le bien ------------------------------------------------------------ */
+function ecranBien(){
+  var b = ETAT.bien;
+  var c = b.insee ? PAR_INSEE[b.insee] : null;
+  return '<h2>Le bien</h2>' +
+    '<p class="doux">Quatre informations, toutes présentes sur l\'annonce.</p>' +
+    '<div class="carte">' +
+      '<div class="champ recherche">' +
+        '<label for="q-commune">Commune</label>' +
+        '<p class="aide">Nom ou code postal. Paris, Lyon et Marseille se choisissent par arrondissement.</p>' +
+        '<input type="search" id="q-commune" autocomplete="off" spellcheck="false" ' +
+          'placeholder="Bordeaux, 33000, Paris 11e…" value="' + ech(c ? c.nom : "") + '">' +
+        '<div class="suggestions" id="suggestions" hidden></div>' +
+        (c ? '<p class="aide" style="margin-top:7px">Choisi : <b>' + ech(c.nom) + '</b> — ' +
+             ech(DEPARTEMENTS[c.dep] || c.dep) + ' (' + ech(c.insee) + ')</p>' : '') +
+      '</div>' +
+      '<div class="champ">' +
+        '<span class="legende">Type de bien</span>' +
+        '<div class="duo">' +
+          '<button type="button" data-type="appartement" aria-pressed="' + (b.type === "appartement") + '">Appartement</button>' +
+          '<button type="button" data-type="maison" aria-pressed="' + (b.type === "maison") + '">Maison</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="champ">' +
+        '<label for="q-prix">Prix affiché</label>' +
+        '<p class="aide">Le prix de l\'annonce, tel quel, honoraires d\'agence compris s\'ils le sont.</p>' +
+        '<input type="text" id="q-prix" inputmode="decimal" placeholder="250 000 €" value="' + ech(b.prix) + '">' +
+      '</div>' +
+      '<div class="champ">' +
+        '<label for="q-surface">Surface habitable</label>' +
+        '<p class="aide">En m². Pour un appartement, c\'est la <span class="def">surface Carrez</span> : la surface de plancher close et couverte, hauteur sous plafond d\'au moins 1,80 m, mesurée par un professionnel.</p>' +
+        '<input type="text" id="q-surface" inputmode="decimal" placeholder="68" value="' + ech(b.surface) + '">' +
+      '</div>' +
+      (b.type === "maison" ?
+      '<div class="champ">' +
+        '<label for="q-terrain">Surface du terrain</label>' +
+        '<p class="aide">En m². Le prix au m² habitable d\'une maison est en grande partie un prix de terrain déguisé : les maisons sont comparées séparément selon que le terrain fait moins ou plus de 500 m².</p>' +
+        '<input type="text" id="q-terrain" inputmode="decimal" placeholder="420" value="' + ech(b.terrain) + '">' +
+      '</div>' : '') +
+    '</div>' +
+    '<div id="zone-bien-message"></div>' +
+    '<button class="bouton large" id="valider-bien"></button>' +
+    '<div class="barre-nav"><button class="bouton discret" data-aller="accueil">Retour</button></div>';
+}
+
+/* Lecture et contrôle de plausibilité des saisies. Bornes explicites,
+   jamais de correction silencieuse. */
+function lireBien(){
+  var b = ETAT.bien;
+  var r = { manque: null, erreur: null };
+  r.commune = b.insee ? PAR_INSEE[b.insee] : null;
+  if (!r.commune){ r.manque = "la commune"; return r; }
+
+  var prix = lireNombre(b.prix);
+  if (!fini(prix) || prix <= 0){ r.manque = "le prix affiché"; return r; }
+  if (prix < 10000){ r.erreur = "Un prix de " + euro(prix * 100) + " est trop bas pour une vente ordinaire. Vérifie la saisie — l'outil ne corrige rien tout seul."; return r; }
+  if (prix > 20000000){ r.erreur = "Un prix de " + euro(prix * 100) + " sort de la plage traitée par cet outil."; return r; }
+  r.prixAfficheCents = Math.round(prix * 100);
+
+  var surface = lireNombre(b.surface);
+  if (!fini(surface) || surface <= 0){ r.manque = "la surface habitable"; return r; }
+  if (surface < 8 || surface > 1000){ r.erreur = "Une surface de " + m2(surface) + " sort de la plage retenue (8 à 1 000 m²), qui est celle du filtrage appliqué aux ventes de référence."; return r; }
+  r.surface = surface;
+
+  if (b.type === "maison"){
+    var t = lireNombre(b.terrain);
+    if (!fini(t)){ r.manque = "la surface du terrain"; return r; }
+    if (t < 0 || t > 200000){ r.erreur = "Une surface de terrain de " + m2(t) + " sort de la plage traitée."; return r; }
+    r.terrain = t;
+  } else r.terrain = 0;
+
+  r.type = b.type;
+  r.ok = true;
+  return r;
+}
+
+/* Prix effectivement versé au vendeur, après application du curseur du §4. */
+function prixVerse(r){
+  return Math.round(r.prixAfficheCents * (1 - ETAT.negociation / 100));
+}
+
+/* --- Verdict ------------------------------------------------------------ */
+function margeVille(insee){
+  var m = REF.negociation.parCommune[insee];
+  if (fini(m)) return { valeur: m, ville: REF.negociation.nomsVilles[insee] || (PAR_INSEE[insee] && PAR_INSEE[insee].nom) };
+  // Les arrondissements partagent la marge de leur ville.
+  var racine = insee.substr(0, 3);
+  var candidats = { "751": "75101", "693": "69381", "132": "13201" };
+  if (candidats[racine] && REF.negociation.parCommune[candidats[racine]]){
+    var k = candidats[racine];
+    return { valeur: REF.negociation.parCommune[k], ville: REF.negociation.nomsVilles[k] };
+  }
+  return { valeur: REF.negociation.national, ville: null };
+}
+
+function estArrondissement(insee){
+  var n = parseInt(insee, 10);
+  return (n >= 75101 && n <= 75120) || (n >= 69381 && n <= 69389) || (n >= 13201 && n <= 13216);
+}
+
+function ecranVerdict(){
+  var r = lireBien();
+  if (!r.ok) return ecranBien();
+  var c = r.commune;
+  var p = profilDe(c.insee, r.type, r.terrain);
+
+  /* Départements absents du fichier national : message honnête, jamais un
+     « 0 €/m² » ni un « commune inconnue ». Le simulateur de crédit reste
+     accessible — les frais et le crédit, eux, se calculent partout. */
+  if (p.etat === "departement_absent" || p.etat === "indisponible"){
+    var libelle = DEPARTEMENTS[p.dep] || p.dep;
+    var absent = p.etat === "departement_absent";
+    return '<h2>' + ech(c.nom) + '</h2>' +
+      '<div class="avis attention"><span class="etiquette">Aucune comparaison possible ici</span>' +
+      (absent
+        ? 'Le ' + ech(libelle) + ' (' + ech(p.dep) + ') relève du livre foncier et non du cadastre : ses ventes sont absentes du fichier national des demandes de valeurs foncières. Il ne s\'agit pas d\'un manque de données de notre côté — elles ne sont pas publiées. Aucun rang ne peut être calculé, et nous préférons ne rien afficher plutôt qu\'un chiffre inventé.'
+        : 'Aucun agrégat exploitable n\'a pu être constitué pour ' + ech(c.nom) + ', ni au niveau de la commune ni au niveau du ' + ech(libelle) + ', pour ce type de bien.') +
+      '</div>' +
+      '<div class="carte"><h3>Ce qui reste calculable</h3>' +
+      '<p class="doux">Les frais d\'acquisition, le crédit et la fiscalité ne dépendent pas des ventes de référence. Tu peux continuer.</p>' +
+      '<button class="bouton" data-aller="projet">Tu comptes en faire quoi ?</button></div>' +
+      '<div class="barre-nav"><button class="bouton discret" data-aller="bien">Modifier le bien</button></div>';
+  }
+
+  var prixCents = prixVerse(r);
+  var prixM2 = prixCents / r.surface;
+  var rang = rangPercentile(prixM2, p.q);
+  var mediane = p.q[2];
+  var ecart = fini(mediane) && mediane > 0 ? (prixM2 - mediane) / mediane * 100 : NaN;
+  var marge = margeVille(c.insee);
+
+  var avis = "";
+  if (p.etat === "faible"){
+    avis += '<div class="avis attention"><span class="etiquette">Peu de ventes comparables (' + nombre(p.n, 0) + ')</span>' +
+      'Résultat indicatif. Avec si peu de ventes, un seul bien atypique déplace sensiblement les repères.</div>';
+  }
+  if (p.etat === "repli"){
+    avis += '<div class="avis attention"><span class="etiquette">Comparaison élargie au département</span>' +
+      'Moins de dix ventes comparables ont été trouvées dans ' + ech(c.nom) + '. La comparaison porte donc sur l\'ensemble du ' +
+      ech(DEPARTEMENTS[p.dep] || p.dep) + ', ce qui mélange des marchés très différents.</div>';
+  }
+  if (p.mois > 24){
+    avis += '<div class="avis attention"><span class="etiquette">Fenêtre élargie à ' + p.mois + ' mois</span>' +
+      'Les 24 mois de référence ne fournissaient pas assez de ventes : la comparaison remonte plus loin dans le temps.</div>';
+  }
+  // Grandes communes à code INSEE unique : un prix médian communal peut
+  // recouvrir des quartiers sans rapport entre eux.
+  var dispersion = p.q[1] > 0 ? p.q[3] / p.q[1] : NaN;
+  if (!estArrondissement(c.insee) && c.pop >= 100000 && fini(dispersion) && dispersion > 1.6){
+    avis += '<div class="avis attention"><span class="etiquette">Commune très hétérogène</span>' +
+      'Les prix varient énormément d\'un quartier à l\'autre dans cette commune. Le rapport entre le quartile haut et le quartile bas y atteint ' +
+      nombre(dispersion, 2) + '. Un rang calculé sur la commune entière dit peu de chose sur le quartier du bien.</div>';
+  }
+
+  var reperesNego = [
+    { v: marge.valeur, label: marge.ville ? "négociation, " + marge.ville : "négociation, France" },
+    { v: REF.agence.repere, label: "honoraires d'agence" }
+  ];
+
+  return '<h2>' + ech(c.nom) + '</h2>' +
+    '<p class="doux" style="margin-top:-6px">' + ech(DEPARTEMENTS[c.dep] || c.dep) + ' · ' +
+      (r.type === "appartement" ? "appartements" : (r.terrain >= 500 ? "maisons sur terrain de 500 m² et plus" : "maisons sur terrain de moins de 500 m²")) + '</p>' +
+    avis +
+    '<div class="carte revelation">' +
+      '<div class="heros"><span class="nombre chiffre" id="rang-nombre">' + nombre(Math.round(rang), 0) + '</span>' +
+      '<p class="phrase" id="rang-phrase"><b>' + nombre(Math.round(rang), 0) + ' ventes sur 100</b> se sont faites moins cher au m² que ce bien.</p></div>' +
+    '</div>' +
+
+    '<div class="grille deux" style="margin-bottom:18px">' +
+      '<div class="tuile moi"><span class="cle">Prix au m² de ce bien</span>' +
+        '<span class="val chiffre" id="tuile-prixm2">' + euroM2(prixM2) + '</span>' +
+        '<span class="note" id="tuile-prixm2-note">sur la base de ' + euro(prixCents) + ' versés au vendeur</span></div>' +
+      '<div class="tuile"><span class="cle">Écart à la <span class="def">médiane</span></span>' +
+        '<span class="val chiffre" id="tuile-ecart">' + (fini(ecart) ? (ecart >= 0 ? "+" : MOINS) + nombre(Math.abs(ecart), 0) + INSEC + "%" : "—") + '</span>' +
+        '<span class="note">Médiane : ' + euroM2(mediane) + '. La moitié des ventes s\'est faite en dessous.</span></div>' +
+    '</div>' +
+
+    '<div class="carte"><h3>La distribution des ventes dans la commune</h3>' +
+      '<div class="defile" id="zone-courbe">' + svgDistribution(p.q, prixM2, 660) + '</div>' +
+      '<p class="faible">Les <span class="def">quartiles</span> P25 et P75 encadrent la moitié centrale des ventes : un quart s\'est fait moins cher que P25, un quart plus cher que P75.</p>' +
+    '</div>' +
+
+    '<div class="carte"><h3>Ce que tu verses vraiment au vendeur</h3>' +
+      '<p class="doux">Le prix de l\'annonce et les ventes de référence ne mesurent pas la même chose. DVF enregistre un <span class="def">prix net vendeur</span> — ce que le vendeur touche, honoraires d\'agence exclus — et c\'est un prix signé, après négociation. L\'annonce, elle, affiche un prix demandé, honoraires généralement compris. Sans correction, l\'outil noterait tous les biens de France trop cher.</p>' +
+      '<p class="doux">On ne corrige pas en silence : ce curseur est à toi. Les deux repères sur la barre te disent où se situent les ordres de grandeur.</p>' +
+      htmlCurseur({
+        id: "negociation", nom: "Écart entre le prix affiché et ce que touche le vendeur",
+        min: 0, max: 20, pas: 0.1, valeur: ETAT.negociation, unite: "%", decimales: 1,
+        aide: "Prix affiché : " + euro(r.prixAfficheCents) + ".",
+        reperes: reperesNego
+      }) +
+      '<div class="tuile"><span class="cle">Prix retenu pour le calcul du rang</span>' +
+        '<span class="val chiffre" id="prix-verse">' + euro(prixCents) + '</span>' +
+        '<span class="note">Le montant exact des honoraires figure sur l\'annonce, à la ligne « honoraires » ou « dont honoraires à charge acquéreur ».</span></div>' +
+    '</div>' +
+
+    '<div class="avis neutre"><span class="etiquette">Ce que ce rang ne dit pas</span>' +
+      'Ni le quartier, ni l\'étage, ni l\'état du bien, ni le DPE, ni la vue, ni les charges. Deux biens au même prix au m² dans la même commune peuvent n\'avoir aucun rapport. Un prix bas peut simplement signaler un défaut.</div>' +
+
+    '<details class="pliable"><summary>Sur quoi on compare</summary><div class="corps">' +
+      '<table class="decompte"><tbody>' +
+        '<tr><td>Médiane du prix au m²</td><td>' + euroM2(p.q[2]) + '</td></tr>' +
+        '<tr><td>Premier quartile (P25)</td><td>' + euroM2(p.q[1]) + '</td></tr>' +
+        '<tr><td>Troisième quartile (P75)</td><td>' + euroM2(p.q[3]) + '</td></tr>' +
+        '<tr><td>Neuvième décile (P90)</td><td>' + euroM2(p.q[4]) + '</td></tr>' +
+        '<tr><td>Premier décile (P10)</td><td>' + euroM2(p.q[0]) + '</td></tr>' +
+        '<tr><td>Ventes retenues</td><td>' + nombre(p.n, 0) + '</td></tr>' +
+        '<tr><td>Périmètre</td><td>' + (p.niveau === "commune" ? "commune" : "département") + '</td></tr>' +
+        '<tr><td>Période couverte</td><td>' + p.mois + ' mois</td></tr>' +
+      '</tbody></table>' +
+      '<h3 style="margin-top:16px">Méthode</h3>' +
+      '<p class="faible">Ventes ordinaires uniquement — les ventes en l\'état futur d\'achèvement, échanges, adjudications et expropriations sont écartées. Sont également écartées les mutations portant sur plusieurs locaux d\'habitation : une mutation porte une valeur unique pouvant couvrir plusieurs lots, et diviser ce total par la surface d\'un seul lot gonfle le prix au m² de 10 à 30 %. ' + nombre(REF.ventes.mutationsEcartees, 0) + ' mutations ont été écartées à ce titre. Les 5 % de prix les plus bas et les 5 % les plus hauts de chaque commune sont retirés avant tout calcul. Médiane et quantiles, jamais de moyenne.</p>' +
+      '<h3 style="margin-top:14px">Surface Carrez et surface réelle bâtie</h3>' +
+      '<p class="faible">DVF enregistre une surface réelle bâtie, l\'annonce une surface Carrez. Mesuré sur ce jeu de données : le rapport médian entre les deux vaut <b>' + nombre(REF.ventes.carrezRatio, 4).replace(",", ",") + '</b>, sur ' + nombre(REF.ventes.carrezLots, 0) + ' lots d\'appartements où les deux surfaces sont renseignées. L\'écart est donc négligeable en pratique, contrairement à ce qu\'on lit souvent.</p>' +
+      '<p class="faible">Source : ' + ech(REF.ventes.source) + '. ' + ech(REF.ventes.licence) + '. Millésime du 5 avril 2026, ventes du 1er janvier 2024 au 31 décembre 2025.</p>' +
+    '</div></details>' +
+
+    '<button class="bouton large" data-aller="projet">Tu comptes en faire quoi ?</button>' +
+    '<div class="barre-nav"><button class="bouton discret" data-aller="bien">Modifier le bien</button></div>';
+}
+
+/* ==========================================================================
+   9. LE PROJET ET SES QUATRE BRANCHES
+   Moteur de crédit commun aux quatre. Chaque branche : un résultat épinglé
+   en haut qui reste visible pendant la manipulation, puis ses curseurs, puis
+   son décompte détaillé. Aucun bouton « calculer » : tout recalcule en direct.
+   ========================================================================== */
+
+var JOURS_MOIS = 30.44;     // durée moyenne d'un mois, pour la courte durée
+
+function ecranProjet(){
+  return '<h2>Tu comptes en faire quoi&nbsp;?</h2>' +
+    '<p class="doux">La même position dans le marché ne veut pas dire la même chose selon ton projet.</p>' +
+    '<div class="grille" style="gap:12px">' +
+      '<button class="projet" data-branche="habite"><strong>J\'y habite</strong><span>Ce que ça coûte par mois, et ce que le crédit coûte en tout.</span></button>' +
+      '<button class="projet" data-branche="annuel"><strong>Je loue à l\'année</strong><span>Ce qui entre, ce qui sort, et le loyer à partir duquel l\'opération s\'équilibre.</span></button>' +
+      '<button class="projet" data-branche="courte"><strong>Je loue en courte durée</strong><span>Revenu net après plateforme, ménage et gestion — et le remplissage qu\'il faut atteindre.</span></button>' +
+      '<button class="projet" data-branche="revente"><strong>J\'achète pour revendre</strong><span>Frais des deux côtés, travaux, et l\'impôt sur la plus-value.</span></button>' +
+    '</div>' +
+    '<div class="barre-nav"><button class="bouton discret" data-aller="verdict">Retour au verdict</button>' +
+    '<button class="bouton discret" data-aller="bien">Modifier le bien</button></div>';
+}
+
+/* --- Contexte financier commun ----------------------------------------- */
+/* Le prix retenu ici est le prix affiché, pas le prix net vendeur : c'est la
+   somme que tu décaisses réellement. Le curseur de négociation du verdict
+   sert à comparer à DVF, il ne réduit pas ce que tu paies. */
+function contexteFinancier(){
+  var r = lireBien();
+  if (!r.ok) return null;
+  var dep = r.commune.dep;
+  var prix = r.prixAfficheCents;
+  var frais = fraisAcquisition(prix, dep, false);
+  if (!ETAT.credit){
+    ETAT.credit = {
+      apport: Math.round(frais.total / 100),     // en euros : couvre les frais
+      duree: 20,
+      taux: REF.credit.parDuree[20],
+      assurance: 0.34,
+      revenu: 0
+    };
+  }
+  var cr = ETAT.credit;
+  var apportCents = Math.max(0, Math.round(cr.apport * 100));
+  var besoin = prix + frais.total;
+  var capital = Math.max(0, besoin - apportCents);
+  var am = amortissement(capital, cr.taux, cr.duree);
+  var assur = primeAssurance(capital, cr.assurance);
+  return {
+    bien: r, dep: dep, prix: prix, frais: frais, besoin: besoin,
+    apport: apportCents, capital: capital, am: am,
+    mensualite: am ? am.mensualite : NaN,
+    assurance: fini(assur) ? Math.round(assur) : NaN,
+    mensualiteTotale: am && fini(assur) ? am.mensualite + Math.round(assur) : NaN
+  };
+}
+
+/* Bloc de financement, partagé par les quatre branches. */
+function htmlBlocCredit(ctx, ouvert){
+  var cr = ETAT.credit;
+  var corps =
+    '<p class="doux"><span class="def">Apport</span> : la part que tu paies sans l\'emprunter. ' +
+    'Le repère marqué sur la barre est le montant des frais d\'acquisition : en dessous, il faut les emprunter aussi.</p>' +
+    htmlCurseur({
+      id: "apport", nom: "Apport", min: 0, max: Math.max(10000, Math.round(ctx.besoin / 100)),
+      pas: 1000, valeur: cr.apport, unite: "€",
+      reperes: [{ v: Math.round(ctx.frais.total / 100), label: "couvre les frais" }]
+    }) +
+    htmlCurseur({
+      id: "duree", nom: "Durée du crédit", min: 2, max: 30, pas: 1, valeur: cr.duree, unite: "ans",
+      reperes: [{ v: REF.hcsf.dureeMax, label: "25 ans (HCSF)", attention: cr.duree > REF.hcsf.dureeMax }]
+    }) +
+    htmlCurseur({
+      id: "taux", nom: "Taux nominal", min: 0, max: 8, pas: 0.01, valeur: cr.taux, unite: "%", decimales: 2,
+      aide: 'Le <span class="def">taux nominal</span> sert à calculer les intérêts. Il n\'inclut ni l\'assurance ni les frais : ce n\'est pas le <span class="def">TAEG</span>, qui, lui, agrège tout et sert à comparer des offres.',
+      reperes: [{ v: repereTauxMarche(cr.duree), label: "moyenne du marché à " + cr.duree + " ans" }]
+    }) +
+    htmlCurseur({
+      id: "assurance", nom: "Taux d'assurance emprunteur", min: 0, max: 1.2, pas: 0.01,
+      valeur: cr.assurance, unite: "%", decimales: 2,
+      aide: "Calculée ici en prime constante sur le capital initial. Elle ne rembourse aucun capital : elle s'ajoute à la mensualité."
+    }) +
+    htmlCurseur({
+      id: "revenu", nom: "Revenu net du foyer, par mois", min: 0, max: 20000, pas: 100,
+      valeur: cr.revenu, unite: "€",
+      aide: 'Facultatif. Sert à situer le <span class="def">taux d\'effort</span> : la part de tes revenus qui part dans la mensualité, assurance comprise. Le HCSF le plafonne à 35 %.'
+    });
+  return '<details class="pliable"' + (ouvert ? " open" : "") + '><summary>Ton financement</summary><div class="corps">' + corps + '</div></details>';
+}
+
+function repereTauxMarche(duree){
+  var t = REF.credit.parDuree, cles = [15, 20, 25];
+  var meilleure = cles[0], ecart = Infinity;
+  for (var i = 0; i < cles.length; i++){
+    var e = Math.abs(cles[i] - duree);
+    if (e < ecart){ ecart = e; meilleure = cles[i]; }
+  }
+  return t[meilleure];
+}
+
+/* Détail du crédit, dépliable : graphique de la bascule intérêts / capital et
+   tableau de ce que l'opération coûte en tout. */
+function htmlDetailCredit(ctx){
+  if (!ctx.am) return '<div class="avis attention"><span class="etiquette">Crédit non calculable</span>Avec les valeurs actuelles, il n\'y a rien à emprunter ou la durée est nulle.</div>';
+  var partInterets = partInteretsPremiereEcheance(ctx.capital, ETAT.credit.taux, ETAT.credit.duree);
+  var coutAssurance = fini(ctx.assurance) ? ctx.assurance * ctx.am.nbEcheances : NaN;
+  var acc = accorderPostes([
+    { nom: "Prix du bien", cents: ctx.prix },
+    { nom: "Frais d'acquisition", sous: "Émoluments, droits de mutation, contribution de sécurité immobilière et débours.", cents: ctx.frais.total },
+    { nom: "Intérêts du crédit", sous: "Calculés chaque mois sur le <span class=\"def\">capital restant dû</span> — la part du capital que tu n'as pas encore remboursée — et jamais sur le capital initial.", cents: ctx.am.totalInterets },
+    { nom: "Assurance emprunteur", sous: "Prime constante sur le capital initial, versée en dehors de l'amortissement.", cents: fini(coutAssurance) ? coutAssurance : 0 }
+  ]);
+  return '<details class="pliable"><summary>Le détail du crédit</summary><div class="corps">' +
+    '<p class="doux">L\'<span class="def">amortissement</span>, c\'est la façon dont chaque mensualité se partage entre intérêts et remboursement du capital. Au début, l\'essentiel part en intérêts ; à la fin, presque tout rembourse le capital.</p>' +
+    (fini(partInterets)
+      ? '<p class="doux">Sur ' + euro(ctx.capital) + ' empruntés à ' + taux(ETAT.credit.taux) + ' sur ' + ETAT.credit.duree + ' ans, ' +
+        '<b>' + nombre(partInterets, 0) + ' %</b> de la première mensualité part en intérêts.</p>' : '') +
+    '<div class="defile">' + svgAmortissement(ctx.am, 660) + '</div>' +
+    '<h3 style="margin-top:16px">Ce que l\'opération coûte en tout</h3>' +
+    htmlDecompte(acc, "Coût total de l'opération") +
+    '<p class="faible">Frais de dossier et garantie non compris : ils dépendent de la banque et de la forme de garantie retenue. Compte quelques centaines à quelques milliers d\'euros de plus.</p>' +
+    '</div></details>';
+}
+
+function htmlFraisAcquisition(ctx){
+  return '<details class="pliable"><summary>Les frais d\'acquisition, poste par poste</summary><div class="corps">' +
+    '<p class="doux">Les « frais de notaire » vont pour l\'essentiel à l\'État et aux collectivités. Les <span class="def">émoluments</span> — la rémunération du notaire — sont fixés par un barème réglementé, identique partout.</p>' +
+    htmlDecompte({ postes: ctx.frais.postes, total: ctx.frais.total }, "Total des frais d'acquisition") +
+    '<p class="faible">Soit ' + taux(ctx.frais.part) + ' du prix. Estimation — le décompte définitif est établi par le notaire. ' +
+    'Les <span class="def">DMTO</span> retenus ici sont ceux du ' + ech(DEPARTEMENTS[ctx.dep] || ctx.dep) + ' : ' + taux(ctx.frais.tauxDmto) + '. ' +
+    'Un primo-accédant en résidence principale bénéficie du taux réduit de ' + taux(REF.dmto.reduit) + ' ; ce cas n\'est pas appliqué automatiquement ici.</p>' +
+    '</div></details>';
+}
+
+/* --- Branche 1 : j'y habite -------------------------------------------- */
+function brancheHabite(ctx){
+  return { rendu: function(){
+    return '<h2>J\'y habite</h2>' + zoneResultat() +
+      htmlBlocCredit(ctx, true) +
+      '<div id="zone-decompte"></div>';
+  }, resultat: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var effort = (ETAT.credit.revenu > 0 && fini(c.mensualiteTotale))
+               ? c.mensualiteTotale / (ETAT.credit.revenu * 100) * 100 : NaN;
+    var h = '<div class="ligne">' +
+      '<div><span class="etiquette">Mensualité, assurance comprise</span>' +
+      '<span class="principal chiffre">' + euro(c.mensualiteTotale) + '</span></div>' +
+      '<div><span class="etiquette">Dont assurance</span><span class="secondaire chiffre">' + euro(c.assurance) + '</span></div>' +
+      '<div><span class="etiquette">Coût du crédit</span><span class="secondaire chiffre">' +
+        euro(c.am ? c.am.totalInterets + (fini(c.assurance) ? c.assurance * c.am.nbEcheances : 0) : NaN) + '</span></div>' +
+      '</div>';
+    if (fini(effort)){
+      var trop = effort > REF.hcsf.tauxEffortMax;
+      h += '<p style="margin:9px 0 0;font-size:.9rem"' + (trop ? ' class="doux"' : ' class="doux"') + '>' +
+        'Taux d\'effort : <b>' + nombre(effort, 1) + ' %</b> de ton revenu net' +
+        (trop ? ' — au-dessus du plafond de 35 % retenu par le HCSF. Les banques peuvent le dépasser dans une part limitée de leurs dossiers.' : '.') + '</p>';
+    }
+    return h;
+  }, decompte: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    return '<p class="doux">Si tu supposes un taux de ' + taux(ETAT.credit.taux) + ' sur ' + ETAT.credit.duree +
+      ' ans avec ' + euro(c.apport) + ' d\'apport, alors tu empruntes ' + euro(c.capital) + '.</p>' +
+      htmlDetailCredit(c) + htmlFraisAcquisition(c) +
+      '<div class="avis neutre">Aucune notion de rendement n\'a de sens ici : une résidence principale ne produit pas de revenu. Ce qu\'elle produit, c\'est un loyer que tu ne verses plus.</div>';
+  }};
+}
+
+/* --- Branche 2 : je loue à l'année ------------------------------------- */
+function loyerEquilibre(c, vacance, chargesAnnuellesCents){
+  var sortie = (fini(c.mensualiteTotale) ? c.mensualiteTotale : 0) + chargesAnnuellesCents / 12;
+  var taux = 1 - vacance / 100;
+  if (!(taux > 0)) return NaN;               // 100 % de vacance : pas d'équilibre
+  return sortie / taux;
+}
+
+function brancheAnnuel(ctx){
+  if (!ETAT.annuel){
+    var eq = loyerEquilibre(ctx, 8, 0);
+    ETAT.annuel = {
+      loyer: fini(eq) ? Math.max(0, Math.round(eq / 100 / 10) * 10) : 0,
+      vacance: 8, charges: 0, regime: "nue", tmi: 30
+    };
+  }
+  return { rendu: function(){
+    var a = ETAT.annuel;
+    return '<h2>Je loue à l\'année</h2>' + zoneResultat() +
+      '<div class="carte">' +
+      htmlCurseur({ id: "loyer", nom: "Loyer mensuel hors charges", min: 0,
+        max: Math.max(500, Math.round((a.loyer || 500) * 3)), pas: 10, valeur: a.loyer, unite: "€",
+        aide: "Le point de départ est le loyer qui équilibre exactement l'opération, repéré sur la barre. Ce n'est pas une prévision de marché : c'est ce qu'il faudrait encaisser.",
+        reperes: [{ v: reperLoyerEquilibre(), label: "loyer d'équilibre" }] }) +
+      htmlCurseur({ id: "vacance", nom: "Vacance locative", min: 0, max: 40, pas: 1, valeur: a.vacance, unite: "%",
+        aide: "Part de l'année sans locataire, entre deux baux ou en impayé. 8 %, c'est environ un mois par an." }) +
+      htmlCurseur({ id: "charges", nom: "Charges non récupérables et taxe foncière, par an", min: 0,
+        max: 20000, pas: 100, valeur: a.charges, unite: "€",
+        aide: "Les charges de copropriété figurent sur l'annonce, la taxe foncière sur l'avis du vendeur. Tant que tu laisses zéro, le calcul les ignore." }) +
+      '</div>' +
+      htmlBlocCredit(ctx, false) +
+      '<div id="zone-decompte"></div>';
+  }, resultat: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var a = ETAT.annuel;
+    var loyerCents = a.loyer * 100;
+    var encaisse = loyerCents * (1 - a.vacance / 100);
+    var chargesMois = a.charges * 100 / 12;
+    var cashflow = encaisse - chargesMois - (fini(c.mensualiteTotale) ? c.mensualiteTotale : 0);
+    var base = c.prix + c.frais.total;
+    var rendement = base > 0 ? (encaisse * 12 - a.charges * 100) / base * 100 : NaN;
+    return '<div class="ligne">' +
+      '<div><span class="etiquette">Trésorerie mensuelle</span><span class="principal">' +
+        fluxHTML(cashflow, "entre chaque mois", "sort chaque mois") + '</span></div>' +
+      '<div><span class="etiquette">Rendement net de charges, avant impôt</span>' +
+        '<span class="secondaire chiffre">' + taux(rendement) + '</span></div>' +
+      '</div>' +
+      '<p class="faible" style="margin:8px 0 0">Si tu supposes ' + euro(loyerCents) + ' de loyer et ' +
+      nombre(a.vacance, 0) + ' % de vacance, alors la trésorerie mensuelle vaut ' + euro(cashflow) + '.</p>';
+  }, decompte: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var a = ETAT.annuel;
+    var encaisse = a.loyer * 100 * (1 - a.vacance / 100);
+    var acc = accorderPostes([
+      { nom: "Loyer encaissé", sous: "Loyer affiché moins la vacance.", cents: encaisse },
+      { nom: "Charges et taxe foncière", cents: -a.charges * 100 / 12 },
+      { nom: "Mensualité du crédit", cents: -(c.am ? c.am.mensualite : 0) },
+      { nom: "Assurance emprunteur", cents: -(fini(c.assurance) ? c.assurance : 0) }
+    ]);
+    var eq = reperLoyerEquilibre();
+    var impots = impotLocatif(a.regime, encaisse * 12, a.tmi);
+    var opts = Object.keys(REF.locatif.regimes).map(function(k){
+      return '<option value="' + k + '"' + (a.regime === k ? " selected" : "") + '>' + ech(REF.locatif.regimes[k].nom) + '</option>';
+    }).join("");
+    var tmis = REF.locatif.tranchesIR.map(function(t){
+      return '<option value="' + t + '"' + (a.tmi === t ? " selected" : "") + '>' + t + ' %</option>';
+    }).join("");
+    return '<div class="carte"><h3>Le mois, poste par poste</h3>' +
+      htmlDecompte(acc, "Trésorerie mensuelle") +
+      '<p class="faible">Le loyer d\'équilibre — celui qui annule exactement cette ligne — vaut ' +
+      (fini(eq) ? euro(eq * 100) : "—") + ' par mois.</p></div>' +
+      '<div class="carte"><h3>L\'impôt sur les loyers</h3>' +
+      '<p class="doux">Régimes micro uniquement. Le régime réel n\'est pas couvert : un plan d\'amortissement par composants calculé dans un fichier hors ligne produirait des chiffres faux sur une déclaration. Pour le réel, passe par un comptable.</p>' +
+      '<div class="grille deux"><div class="champ"><label for="sel-regime">Régime</label><select id="sel-regime">' + opts + '</select></div>' +
+      '<div class="champ"><label for="sel-tmi">Ta tranche d\'imposition</label><select id="sel-tmi">' + tmis + '</select></div></div>' +
+      (impots ? htmlDecompte(accorderPostes([
+        { nom: "Loyers encaissés sur l'année", cents: encaisse * 12 },
+        { nom: "Abattement forfaitaire " + nombre(impots.regime.abattement, 0) + " %", cents: -(encaisse * 12 * impots.regime.abattement / 100) },
+        { nom: "Impôt sur le revenu", sous: "Base imposable × ta tranche.", cents: -impots.ir },
+        { nom: "Prélèvements sociaux " + nombre(impots.regime.ps, 1) + " %", cents: -impots.ps }
+      ]), "Reste après impôt, sur l'année") : "") +
+      (impots && impots.depassePlafond ? '<div class="avis attention"><span class="etiquette">Plafond du régime micro dépassé</span>' +
+        'Au-delà de ' + euro(impots.plafondCents) + ' de recettes annuelles, ce régime ne s\'applique plus : c\'est le régime réel, non couvert ici.</div>' : '') +
+      '</div>' +
+      htmlDetailCredit(c) + htmlFraisAcquisition(c);
+  }};
+}
+
+function reperLoyerEquilibre(){
+  var c = contexteFinancier();
+  if (!c || !ETAT.annuel) return NaN;
+  var eq = loyerEquilibre(c, ETAT.annuel.vacance, ETAT.annuel.charges * 100);
+  return fini(eq) ? Math.round(eq / 100) : NaN;
+}
+
+/* --- Branche 3 : je loue en courte durée -------------------------------- */
+function remplissageEquilibre(){
+  var c = contexteFinancier(), o = ETAT.courte;
+  if (!c || !o) return NaN;
+  var netParNuit = o.nuit * 100 * (1 - (o.plateforme + o.gestion) / 100) - o.menage * 100;
+  if (!(netParNuit > 0)) return NaN;          // aucune occupation ne peut couvrir
+  var cible = fini(c.mensualiteTotale) ? c.mensualiteTotale : 0;
+  var t = cible / (JOURS_MOIS * netParNuit) * 100;
+  return fini(t) ? t : NaN;
+}
+
+function brancheCourte(ctx){
+  if (!ETAT.courte){
+    // Point de départ : le prix par nuit qui couvre le crédit à 50 % de
+    // remplissage. Dérivé, pas prédit.
+    var cible = fini(ctx.mensualiteTotale) ? ctx.mensualiteTotale : 0;
+    var nuits = JOURS_MOIS * 0.5;
+    var brut = nuits > 0 ? cible / nuits / 100 / 0.85 : 80;
+    ETAT.courte = {
+      nuit: Math.max(20, Math.round(brut / 5) * 5), remplissage: 50,
+      plateforme: 3, menage: 0, gestion: 0, regime: "tourismeNon", tmi: 30
+    };
+  }
+  return { rendu: function(){
+    var o = ETAT.courte;
+    return '<h2>Je loue en courte durée</h2>' + zoneResultat() +
+      '<div class="avis risque"><span class="etiquette">Risque juridique, à vérifier avant tout calcul</span>' +
+      'Dans de nombreuses communes, louer un logement en meublé de tourisme suppose une déclaration en mairie, et parfois une autorisation de changement d\'usage avec compensation. Sans elle, l\'activité est passible d\'amende et peut être purement et simplement impossible. Renseigne-toi en mairie avant d\'aller plus loin : aucun des chiffres ci-dessous ne vaut si l\'autorisation n\'est pas obtenue.</div>' +
+      '<div class="carte">' +
+      htmlCurseur({ id: "nuit", nom: "Prix par nuit", min: 0, max: Math.max(200, o.nuit * 3), pas: 5, valeur: o.nuit, unite: "€",
+        aide: "Le point de départ est le prix qui couvrirait le crédit à 50 % de remplissage. Ce n'est pas une estimation de ce que le marché accepte." }) +
+      htmlCurseur({ id: "remplissage", nom: "Taux de remplissage", min: 0, max: 100, pas: 1, valeur: o.remplissage, unite: "%",
+        aide: "Part des nuits effectivement louées sur l'année.",
+        reperes: [{ v: remplissageEquilibre(), label: "couvre le crédit", attention: remplissageEquilibre() > 100 }] }) +
+      htmlCurseur({ id: "plateforme", nom: "Commission de la plateforme", min: 0, max: 25, pas: 0.5, valeur: o.plateforme, unite: "%", decimales: 1 }) +
+      htmlCurseur({ id: "menage", nom: "Ménage et blanchisserie, par nuit louée", min: 0, max: 100, pas: 1, valeur: o.menage, unite: "€" }) +
+      htmlCurseur({ id: "gestion", nom: "Conciergerie ou gestion", min: 0, max: 30, pas: 0.5, valeur: o.gestion, unite: "%", decimales: 1 }) +
+      '</div>' +
+      htmlBlocCredit(ctx, false) +
+      '<div id="zone-decompte"></div>';
+  }, resultat: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var o = ETAT.courte;
+    var nuits = JOURS_MOIS * o.remplissage / 100;
+    var brut = nuits * o.nuit * 100;
+    var net = brut * (1 - (o.plateforme + o.gestion) / 100) - nuits * o.menage * 100;
+    var reste = net - (fini(c.mensualiteTotale) ? c.mensualiteTotale : 0);
+    return '<div class="ligne">' +
+      '<div><span class="etiquette">Revenu net mensuel, avant impôt</span><span class="principal chiffre">' + euro(net) + '</span></div>' +
+      '<div><span class="etiquette">Après la mensualité de crédit</span><span class="secondaire">' + fluxHTML(reste, "entre", "sort") + '</span></div>' +
+      '</div>' +
+      '<p class="faible" style="margin:8px 0 0">Si tu supposes ' + euro(o.nuit * 100) + ' la nuit et ' + nombre(o.remplissage, 0) +
+      ' % de remplissage, alors tu loues ' + nombre(nuits, 1) + ' nuits par mois en moyenne.</p>';
+  }, decompte: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var o = ETAT.courte;
+    var nuits = JOURS_MOIS * o.remplissage / 100;
+    var brut = nuits * o.nuit * 100;
+    var acc = accorderPostes([
+      { nom: "Recettes brutes", sous: nombre(nuits, 1) + " nuits à " + euro(o.nuit * 100) + ".", cents: brut },
+      { nom: "Commission de la plateforme", cents: -brut * o.plateforme / 100 },
+      { nom: "Conciergerie ou gestion", cents: -brut * o.gestion / 100 },
+      { nom: "Ménage et blanchisserie", cents: -nuits * o.menage * 100 },
+      { nom: "Mensualité du crédit, assurance comprise", cents: -(fini(c.mensualiteTotale) ? c.mensualiteTotale : 0) }
+    ]);
+    var eq = remplissageEquilibre();
+    return '<div class="carte"><h3>Le mois, poste par poste</h3>' + htmlDecompte(acc, "Ce qu\'il reste") +
+      '<p class="faible">' + (fini(eq)
+        ? (eq > 100
+          ? 'Aux valeurs actuelles, même 100 % de remplissage ne couvrirait pas la mensualité : il faudrait ' + nombre(eq, 0) + ' % de remplissage.'
+          : 'Le remplissage qui couvre exactement la mensualité vaut ' + nombre(eq, 0) + ' %.')
+        : 'Avec ces valeurs, une nuit louée rapporte zéro ou moins une fois le ménage et les commissions déduits : aucun remplissage ne couvre la mensualité.') + '</p></div>' +
+      '<div class="carte"><h3>L\'impôt</h3>' +
+      '<p class="doux">Un meublé de tourisme <b>classé</b> relève d\'un abattement de 50 % jusqu\'à ' + euro(83600 * 100) +
+      ' de recettes ; <b>non classé</b>, l\'abattement tombe à 30 % et le plafond à ' + euro(15000 * 100) +
+      ' depuis la loi du 19 novembre 2024. Les prélèvements sociaux sur les bénéfices de location meublée sont à ' +
+      nombre(18.6, 1) + ' %.</p>' +
+      '<p class="faible">Le régime réel n\'est pas couvert ici. Pour un meublé, c\'est pourtant très souvent celui qui s\'applique : parles-en à un comptable.</p></div>' +
+      htmlDetailCredit(c) + htmlFraisAcquisition(c);
+  }};
+}
+
+/* --- Branche 4 : j'achète pour revendre --------------------------------- */
+function brancheRevente(ctx){
+  if (!ETAT.revente){
+    var r = ctx.bien;
+    var p = profilDe(r.commune.insee, r.type, r.terrain);
+    var mediane = (p.etat === "ok" || p.etat === "faible" || p.etat === "repli") ? p.q[2] : null;
+    ETAT.revente = {
+      travaux: 0,
+      prixM2: Math.round((mediane !== null ? mediane : ctx.prix / r.surface) / 100),
+      delai: 5
+    };
+  }
+  return { rendu: function(){
+    var v = ETAT.revente, r = ctx.bien;
+    var p = profilDe(r.commune.insee, r.type, r.terrain);
+    var mediane = (p.q ? Math.round(p.q[2] / 100) : NaN);
+    return '<h2>J\'achète pour revendre</h2>' + zoneResultat() +
+      '<div class="carte">' +
+      htmlCurseur({ id: "travaux", nom: "Budget travaux", min: 0, max: Math.max(50000, Math.round(ctx.prix / 100)), pas: 1000, valeur: v.travaux, unite: "€",
+        aide: "Devis en main, pas d'estimation au doigt mouillé : c'est le poste qui dérape le plus souvent." }) +
+      htmlCurseur({ id: "prixM2", nom: "Prix de revente au m²", min: 0, max: Math.max(2000, v.prixM2 * 3), pas: 10, valeur: v.prixM2, unite: "€/m²",
+        aide: "Le repère est la médiane actuelle de la commune pour ce type de bien. Elle décrit le marché d'aujourd'hui, pas celui de ta revente.",
+        reperes: [{ v: mediane, label: "médiane de la commune" }] }) +
+      htmlCurseur({ id: "delai", nom: "Durée de détention", min: 1, max: 35, pas: 1, valeur: v.delai, unite: "ans",
+        aide: "L'impôt sur la plus-value s'efface avec le temps de détention, mais pas au même rythme pour l'impôt sur le revenu et pour les prélèvements sociaux.",
+        reperes: [{ v: 22, label: "impôt sur le revenu éteint" },
+                   { v: 30, label: "prélèvements sociaux éteints" }] }) +
+      '</div>' +
+      htmlBlocCredit(ctx, false) +
+      '<div id="zone-decompte"></div>';
+  }, resultat: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var d = calculRevente(c);
+    if (!d) return "";
+    return '<div class="ligne">' +
+      '<div><span class="etiquette">Marge, tout compris</span><span class="principal">' + fluxHTML(d.marge, "de gain", "de perte") + '</span></div>' +
+      '<div><span class="etiquette">Impôt sur la plus-value</span><span class="secondaire chiffre">' + euro(d.pv ? d.pv.total : NaN) + '</span></div>' +
+      '</div>' +
+      '<p class="faible" style="margin:8px 0 0">Si tu supposes une revente à ' + euroM2(ETAT.revente.prixM2 * 100) +
+      ' au bout de ' + ETAT.revente.delai + ' ans, alors la marge vaut ' + euro(d.marge) + '.</p>';
+  }, decompte: function(){
+    var c = contexteFinancier(); if (!c) return "";
+    var d = calculRevente(c);
+    if (!d) return "";
+    var v = ETAT.revente;
+    var acc = accorderPostes([
+      { nom: "Prix de revente", sous: m2(c.bien.surface) + " à " + euroM2(v.prixM2 * 100) + ".", cents: d.revente },
+      { nom: "Honoraires d'agence à la revente", sous: "Ordre de grandeur, " + taux(REF.agence.repere) + " du prix. Le mandat fixe le montant réel.", cents: -d.fraisVente },
+      { nom: "Prix d'achat", cents: -c.prix },
+      { nom: "Frais d'acquisition", cents: -c.frais.total },
+      { nom: "Travaux", cents: -v.travaux * 100 },
+      { nom: "Intérêts et assurance versés pendant la détention", cents: -d.coutCredit },
+      { nom: "Impôt sur la plus-value", cents: -(d.pv ? d.pv.total : 0) }
+    ]);
+    var pv = d.pv;
+    return '<div class="carte"><h3>Les deux côtés de l\'opération</h3>' + htmlDecompte(acc, "Marge") + '</div>' +
+      (pv ? '<div class="carte"><h3>L\'impôt sur la plus-value, dans le détail</h3>' +
+      '<p class="doux">La plus-value imposable n\'est pas le simple écart entre les deux prix : le prix d\'achat est majoré des frais et des travaux, puis abattu selon la durée de détention.</p>' +
+      '<table class="decompte"><tbody>' +
+      '<tr><td>Prix d\'acquisition majoré<span class="sous">Prix, plus les frais réels, plus les travaux — retenus au moins au forfait de 15 % au-delà de 5 ans de détention.</span></td><td>' + euro(pv.majore) + '</td></tr>' +
+      '<tr><td>Plus-value brute</td><td>' + euro(pv.brute) + '</td></tr>' +
+      '<tr><td>Abattement pour durée de détention, impôt sur le revenu<span class="sous">6 % par an de la 6e à la 21e année, 4 % la 22e. Exonération totale à 22 ans.</span></td><td>' + taux(pv.abIR) + '</td></tr>' +
+      '<tr><td>Abattement, prélèvements sociaux<span class="sous">1,65 % par an de la 6e à la 21e, 1,60 % la 22e, 9 % par an de la 23e à la 30e. Exonération totale à 30 ans.</span></td><td>' + taux(pv.abPS) + '</td></tr>' +
+      '<tr><td>Impôt sur le revenu, ' + taux(REF.plusValue.tauxIR) + '</td><td>' + euro(pv.ir) + '</td></tr>' +
+      '<tr><td>Prélèvements sociaux, ' + taux(REF.plusValue.tauxPS) + '</td><td>' + euro(pv.ps) + '</td></tr>' +
+      '<tr><td>Surtaxe sur les plus-values élevées<span class="sous">De 2 à 6 % au-delà de 50 000 € de plus-value imposable, avec les coefficients de lissage du CGI.</span></td><td>' + euro(pv.surtaxe) + '</td></tr>' +
+      '</tbody><tfoot><tr><td>Impôt total</td><td>' + euro(pv.total) + '</td></tr></tfoot></table>' +
+      '<p class="faible">La résidence principale est exonérée de cet impôt. Ce calcul suppose que le bien n\'en est pas une.</p></div>' : '') +
+      htmlDetailCredit(c) + htmlFraisAcquisition(c);
+  }};
+}
+
+function calculRevente(c){
+  var v = ETAT.revente;
+  if (!v) return null;
+  var revente = Math.round(v.prixM2 * 100 * c.bien.surface);
+  var fraisVente = Math.round(revente * REF.agence.repere / 100);
+  // Coût du crédit réellement supporté pendant la détention seulement.
+  var coutCredit = 0;
+  if (c.am){
+    var n = Math.min(c.am.lignes.length, Math.round(v.delai * 12));
+    for (var i = 0; i < n; i++) coutCredit += c.am.lignes[i].interets;
+    if (fini(c.assurance)) coutCredit += c.assurance * n;
+  }
+  var pv = impotPlusValue({
+    prixVenteCents: revente, prixAchatCents: c.prix, fraisReelsCents: c.frais.total,
+    travauxCents: v.travaux * 100, fraisVenteCents: fraisVente, annees: v.delai
+  });
+  var marge = revente - fraisVente - c.prix - c.frais.total - v.travaux * 100
+            - coutCredit - (pv ? pv.total : 0);
+  return { revente: revente, fraisVente: fraisVente, coutCredit: coutCredit, pv: pv, marge: marge };
+}
+
+function zoneResultat(){ return '<div class="epingle" id="zone-resultat"></div>'; }
+
+/* ==========================================================================
+   10. LIMITES
+   Ce que l'outil ignore, honnêtement, sans enrobage.
+   ========================================================================== */
+function ecranLimites(){
+  return '<h2>Ce que cet outil ignore</h2>' +
+    '<div class="carte"><h3>Sur la comparaison de prix</h3><ul class="doux">' +
+    '<li>Le quartier, la rue, l\'étage, l\'exposition, la vue, l\'état du bien, le DPE, les charges de copropriété, les travaux votés, la présence d\'un ascenseur, d\'un balcon, d\'un parking ou d\'une cave. Rien de tout cela n\'entre dans le calcul.</li>' +
+    '<li>Les ventes de référence sont celles de 2024 et 2025. Le marché a pu bouger depuis.</li>' +
+    '<li>Le prix affiché d\'une annonce et le prix enregistré par DVF ne mesurent pas la même chose. Le curseur de négociation te laisse fixer l\'écart ; il ne le connaît pas.</li>' +
+    '<li>Les départements de la Moselle, du Bas-Rhin, du Haut-Rhin et Mayotte relèvent du livre foncier : leurs ventes ne figurent pas dans le fichier national. Aucune comparaison n\'y est possible.</li>' +
+    '<li>Dans une commune de quelques milliers d\'habitants, une poignée de ventes suffit à déplacer les repères. Le nombre de ventes retenues est toujours affiché : regarde-le.</li>' +
+    '</ul></div>' +
+    '<div class="carte"><h3>Sur les calculs financiers</h3><ul class="doux">' +
+    '<li>La mensualité est calculée selon la convention française du taux proportionnel — le taux annuel divisé par douze. Ce n\'est pas un taux actuariel, et l\'écart avec le calcul actuariel est réel quoique faible.</li>' +
+    '<li>Le taux que tu saisis est un taux nominal, pas un TAEG. Un TAEG intègre l\'assurance, les frais de dossier et la garantie : il est toujours supérieur.</li>' +
+    '<li>L\'assurance emprunteur est calculée en prime constante sur le capital initial. Certains contrats la calculent sur le capital restant dû, ce qui la fait décroître avec le temps et réduit son coût total.</li>' +
+    '<li>Les frais de dossier et le coût de la garantie — caution ou hypothèque — ne sont pas chiffrés : ils dépendent de la banque.</li>' +
+    '<li>Les frais d\'acquisition sont une estimation calculée sur le barème réglementé. Le décompte définitif est établi par le notaire, et il diffère toujours un peu.</li>' +
+    '<li>Le taux réduit de DMTO applicable aux primo-accédants en résidence principale n\'est pas appliqué automatiquement.</li>' +
+    '</ul></div>' +
+    '<div class="carte"><h3>Sur la fiscalité</h3><ul class="doux">' +
+    '<li>Seuls les régimes micro sont couverts. Le régime réel ne l\'est pas : un plan d\'amortissement par composants calculé dans un fichier hors ligne produirait des chiffres faux sur une déclaration. Pour le réel, il faut un comptable.</li>' +
+    '<li>L\'impôt sur la plus-value est calculé pour un bien qui n\'est pas ta résidence principale. Une résidence principale en est exonérée.</li>' +
+    '<li>Ni l\'IFI, ni la CFE, ni les régimes de faveur, ni les situations de démembrement, d\'indivision ou de société ne sont traités.</li>' +
+    '<li>Les barèmes changent. Ceux-ci sont ceux du début 2026 et portent leur date.</li>' +
+    '</ul></div>' +
+    '<div class="carte"><h3>Sur ce que l\'outil ne fait pas</h3>' +
+    '<p class="doux">Il ne dit pas s\'il faut acheter. Il ne compare pas deux biens entre eux. Il ne prédit aucun prix futur. Il ne remplace ni un notaire, ni un courtier, ni un diagnostiqueur, ni un comptable.</p></div>' +
+    '<div class="barre-nav"><button class="bouton discret" data-aller="accueil">Retour à l\'accueil</button></div>';
+}
+
+/* ==========================================================================
+   11. CONTRÔLES INTERNES
+   Les vérifications tournent ici, dans le navigateur, sur le code réellement
+   chargé. Un contrôle en échec est affiché comme tel : l'outil ne cache pas
+   ses propres défauts.
+   ========================================================================== */
+function lancerControles(){
+  var t = [];
+  function ok(nom, condition, detail){ t.push({ nom: nom, ok: !!condition, detail: detail }); }
+  function pres(a, b, tol){ return fini(a) && fini(b) && Math.abs(a - b) <= tol; }
+
+  /* 1. Mensualité, amortissement et solde final. */
+  (function(){
+    var am = amortissement(200000 * 100, 3.44, 20);
+    ok("Mensualité de référence",
+       am && pres(am.mensualite / 100, 1153.76, 1),
+       "200 000 € à 3,44 % sur 20 ans → " + (am ? euro(am.mensualite) : "—") + " (attendu 1 153,76 € ± 1 €)");
+    ok("Total versé et intérêts",
+       am && pres(am.totalVerse / 100, 276903, 300) && pres(am.totalInterets / 100, 76903, 300),
+       "total versé " + (am ? euro(am.totalVerse) : "—") + ", intérêts " + (am ? euro(am.totalInterets) : "—") +
+       " (attendus ≈ 276 903 € et ≈ 76 903 €)");
+    var l1 = am && am.lignes[0];
+    ok("Première échéance",
+       l1 && pres(l1.interets / 100, 573.33, 1) && pres(l1.capital / 100, 580.43, 1),
+       l1 ? "intérêts " + nombre(l1.interets / 100, 2) + " €, capital " + nombre(l1.capital / 100, 2) +
+            " € (attendus 573,33 € et 580,43 €)" : "—");
+    ok("Capital restant dû au terme",
+       am && am.nbEcheances === 240 && am.restantFinal === 0,
+       am ? am.nbEcheances + " échéances, capital restant dû final : " + euro(am.restantFinal) : "—");
+    // Les intérêts se calculent sur le capital restant dû, jamais sur le
+    // capital initial : le contrôle vérifie qu'ils décroissent.
+    var decroit = true;
+    if (am) for (var i = 1; i < am.lignes.length; i++) if (am.lignes[i].interets > am.lignes[i - 1].interets) decroit = false;
+    ok("Intérêts calculés sur le capital restant dû", decroit,
+       "la part d'intérêts décroît à chaque échéance, du premier au dernier mois");
+  })();
+
+  /* 2. Frais d'acquisition, calculés à partir des composants. */
+  (function(){
+    var prix = 250000 * 100;
+    var ht = emolumentsHT(prix);
+    var f = fraisAcquisition(prix, "33", false);
+    ok("Émoluments du notaire", pres(ht / 100, 2394.75, 0.5),
+       "250 000 € → " + euro(ht) + " hors taxe, " + euro(ht * 1.2) + " TTC (attendus 2 394,75 € et 2 873,70 €)");
+    ok("Droits de mutation", pres(f.postes[1].cents / 100, 15800, 1) && pres(f.tauxDmto, 6.32, 0.001),
+       "6,32 % de 250 000 € → " + euro(f.postes[1].cents));
+    ok("Contribution de sécurité immobilière", pres(f.postes[2].cents / 100, 250, 1),
+       "0,10 % de 250 000 € → " + euro(f.postes[2].cents));
+    ok("Total des frais d'acquisition", pres(f.total / 100, 20124, 3) && pres(f.part, 8.05, 0.05),
+       euro(f.total) + " soit " + taux(f.part) + " (attendus ≈ 20 124 € et 8,05 %)");
+  })();
+
+  /* 3. Cohérence de somme sur des jeux de paramètres tirés au hasard. */
+  (function(){
+    var echecs = 0, pire = 0;
+    for (var k = 0; k < 40; k++){
+      var postes = [];
+      var n = 3 + Math.floor(Math.random() * 5);
+      for (var i = 0; i < n; i++) postes.push({ nom: "p" + i, cents: (Math.random() - 0.35) * 4000000 });
+      var acc = accorderPostes(postes);
+      var s = 0;
+      for (i = 0; i < acc.postes.length; i++) s += acc.postes[i].cents;
+      var ecart = Math.abs(s - acc.total);
+      if (ecart > pire) pire = ecart;
+      if (ecart > 0) echecs++;
+    }
+    ok("Somme des postes égale au total", echecs === 0,
+       "40 jeux de paramètres tirés au hasard, écart maximal constaté : " + euro(pire));
+  })();
+
+  /* 4. Départements absents du fichier national. */
+  (function(){
+    var villes = [["67482", "Strasbourg"], ["68224", "Mulhouse"], ["57463", "Metz"]];
+    var tous = true, dit = [];
+    for (var i = 0; i < villes.length; i++){
+      var p = profilDe(villes[i][0], "appartement", 0);
+      if (p.etat !== "departement_absent") tous = false;
+      dit.push(villes[i][1] + " : " + p.etat);
+    }
+    ok("Départements absents traités honnêtement", tous, dit.join(" · ") + " — aucune note, aucun zéro");
+  })();
+
+  /* 5. Arrondissements. */
+  (function(){
+    var res = chercher("Paris", 25);
+    var global = false, arr = 0;
+    for (var i = 0; i < res.length; i++){
+      if (res[i].insee === "75056") global = true;
+      if (estArrondissement(res[i].insee)) arr++;
+    }
+    ok("Paris proposé par arrondissement", !global && arr >= 20,
+       arr + " arrondissements proposés, aucun Paris global dans la table");
+    ok("Lyon et Marseille par arrondissement",
+       !PAR_INSEE["69123"] && !PAR_INSEE["13055"] && !!PAR_INSEE["69386"] && !!PAR_INSEE["13208"],
+       "les communes globales 69123 et 13055 sont absentes de la table");
+  })();
+
+  /* 6. Le biais de comparaison est effectivement branché. */
+  (function(){
+    var c = PAR_INSEE["33063"];
+    var p = c && profilDe("33063", "appartement", 0);
+    if (!p || !p.q){ ok("Correction du biais de comparaison", false, "commune de contrôle indisponible"); return; }
+    var surface = 70, mediane = p.q[2];
+    var prixAffiche = Math.round(mediane * surface);
+    var rang0 = rangPercentile(prixAffiche / surface, p.q);
+    var marge = margeVille("33063").valeur;
+    var rang1 = rangPercentile(prixAffiche * (1 - marge / 100) / surface, p.q);
+    ok("Un bien au prix médian obtient un rang proche de 50", pres(rang0, 50, 1.5),
+       "rang obtenu : " + nombre(rang0, 1));
+    ok("Le curseur de négociation change bien le rang",
+       fini(rang1) && Math.abs(rang0 - rang1) >= 2 && rang1 < rang0,
+       "curseur à 0 % → rang " + nombre(rang0, 1) + " ; curseur à la marge de Bordeaux (" +
+       taux(marge) + ") → rang " + nombre(rang1, 1) + ". Si les deux valeurs étaient identiques, la correction ne serait pas branchée.");
+  })();
+
+  /* 7. Quantiles égaux et divisions par zéro. */
+  (function(){
+    var plats = [300000, 300000, 300000, 300000, 300000];
+    var egaux = [200000, 300000, 300000, 300000, 400000];
+    var vals = [rangPercentile(300000, plats), rangPercentile(250000, egaux),
+                rangPercentile(300000, egaux), rangPercentile(900000, plats),
+                rangPercentile(0, plats)];
+    var tous = true;
+    for (var i = 0; i < vals.length; i++) if (!fini(vals[i])) tous = false;
+    ok("Quantiles égaux", tous, "cinq configurations dégénérées, dont p25 = p50 : rangs " +
+       vals.map(function(v){ return nombre(v, 1); }).join(" · ") + " — aucune valeur non finie");
+    var zeros = [mensualite(100000 * 100, 0, 20), mensualite(100000 * 100, 3, 0),
+                 mensualite(0, 3, 20), emolumentsHT(0)];
+    ok("Divisions par zéro",
+       fini(zeros[0]) && !fini(zeros[1]) && fini(zeros[2]) && fini(zeros[3]),
+       "taux nul → " + euro(zeros[0]) + " · durée nulle → " + euro(zeros[1]) + " · capital nul → " + euro(zeros[2]) +
+       " · émoluments sur prix nul → " + euro(zeros[3]) + ". Aucune de ces branches ne produit de NaN à l'écran.");
+    var affichages = [euro(NaN), euro(Infinity), euro(undefined), euro(-0.4), taux(NaN), m2(Infinity), nombre(NaN, 2)];
+    var propre = true;
+    for (i = 0; i < affichages.length; i++) if (/NaN|Infinity|undefined|−0|-0/.test(affichages[i])) propre = false;
+    ok("Le formateur intercepte les valeurs non finies", propre,
+       "NaN, Infinity, undefined et −0 donnent tous : " + affichages.slice(0, 4).join(" · "));
+  })();
+
+  /* 8. Robustesse : toute la plage de chaque curseur, aux deux extrémités. */
+  (function(){
+    var sauve = JSON.stringify({ b: ETAT.bien, c: ETAT.credit, a: ETAT.annuel, o: ETAT.courte, r: ETAT.revente, n: ETAT.negociation });
+    var sale = null, essais = 0;
+    try {
+      ETAT.bien = { insee: "33063", type: "appartement", prix: "250000", surface: "70", terrain: "" };
+      ETAT.negociation = 0;
+      ETAT.credit = null;
+      var ctx0 = contexteFinancier();
+      var plages = {
+        apport: [0, Math.round(ctx0.besoin / 100)], duree: [2, 30], taux: [0, 8],
+        assurance: [0, 1.2], revenu: [0, 20000]
+      };
+      var branches = { habite: brancheHabite, annuel: brancheAnnuel, courte: brancheCourte, revente: brancheRevente };
+      for (var nb in branches){
+        ETAT.annuel = ETAT.courte = ETAT.revente = null;
+        var ctx = contexteFinancier();
+        var br = branches[nb](ctx);
+        var jeux = [];
+        for (var cle in plages) jeux.push([cle, plages[cle][0]], [cle, plages[cle][1]]);
+        // Les curseurs propres à la branche, balayés aux deux extrémités.
+        var propres = { annuel: { loyer: [0, 100000], vacance: [0, 40], charges: [0, 20000] },
+                        courte: { nuit: [0, 5000], remplissage: [0, 100], plateforme: [0, 25], menage: [0, 100], gestion: [0, 30] },
+                        revente: { travaux: [0, 5000000], prixM2: [0, 100000], delai: [1, 35] } }[nb] || {};
+        for (var cp in propres) jeux.push([cp, propres[cp][0]], [cp, propres[cp][1]]);
+        for (var j = 0; j < jeux.length; j++){
+          appliquerCurseur(jeux[j][0], jeux[j][1]);
+          var html = String(br.resultat()) + String(br.decompte());
+          essais++;
+          if (/NaN|Infinity|undefined|>−0 €|>-0 €/.test(html)) sale = nb + " / " + jeux[j][0] + " = " + jeux[j][1];
+        }
+      }
+    } catch (e){ sale = "exception : " + e.message; }
+    var etat = JSON.parse(sauve);
+    ETAT.bien = etat.b; ETAT.credit = etat.c; ETAT.annuel = etat.a;
+    ETAT.courte = etat.o; ETAT.revente = etat.r; ETAT.negociation = etat.n;
+    ok("Robustesse sur toute la plage des curseurs", sale === null,
+       essais + " combinaisons balayées aux deux extrémités des quatre branches" + (sale ? " — échec sur " + sale : " — aucune valeur non finie n'atteint l'écran"));
+  })();
+
+  /* 9. Vocabulaire. Les termes sont assemblés morceau par morceau : écrits en
+        clair, ils seraient eux-mêmes des occurrences dans le fichier. */
+  (function(){
+    var interdits = ["bonne " + "affaire", "affair" + "e", "opportun" + "ité", "à sai" + "sir",
+                     "déco" + "té", "surco" + "té", "renta" + "ble", "garan" + "ti", "s" + "ûr",
+                     "tu dev" + "rais", "nous recom" + "mandons", "idé" + "al", "parfa" + "it",
+                     "il faut que " + "tu"];
+    var ecrans = [ecranAccueil(), ecranLimites(), ecranProjet()];
+    var sauve = JSON.stringify({ b: ETAT.bien, n: ETAT.negociation, c: ETAT.credit });
+    try {
+      ETAT.bien = { insee: "33063", type: "appartement", prix: "250000", surface: "70", terrain: "" };
+      ETAT.negociation = 0; ETAT.credit = null;
+      ecrans.push(ecranBien(), ecranVerdict());
+      var ctx = contexteFinancier();
+      ETAT.annuel = ETAT.courte = ETAT.revente = null;
+      var bs = [brancheHabite(ctx), brancheAnnuel(ctx), brancheCourte(ctx), brancheRevente(ctx)];
+      for (var i = 0; i < bs.length; i++) ecrans.push(bs[i].rendu(), bs[i].resultat(), bs[i].decompte());
+    } catch (e){ /* le contrôle reste valable sur les écrans déjà produits */ }
+    var etat = JSON.parse(sauve);
+    ETAT.bien = etat.b; ETAT.negociation = etat.n; ETAT.credit = etat.c;
+    ETAT.annuel = ETAT.courte = ETAT.revente = null;
+
+    var texte = ecrans.join(" ").replace(/<[^>]*>/g, " ").toLowerCase();
+    var trouves = [];
+    for (var k = 0; k < interdits.length; k++){
+      var m = new RegExp("(^|[^a-zà-ÿ])" + interdits[k] + "([^a-zà-ÿ]|$)", "i");
+      if (m.test(texte)) trouves.push(interdits[k]);
+    }
+    ok("Vocabulaire interdit absent des écrans", trouves.length === 0,
+       interdits.length + " termes recherchés dans le texte affiché de tous les écrans" +
+       (trouves.length ? " — trouvés : " + trouves.join(", ") : " — zéro occurrence"));
+  })();
+
+  /* 10. Aucune ressource extérieure, et poids du fichier. */
+  (function(){
+    var html = document.documentElement.outerHTML;
+    // Sont recherchés les chargements de ressources — eux seuls déclenchent
+    // une requête. Un lien cliquable n'en émet aucune tant qu'il dort.
+    // Les motifs sont assemblés morceau par morceau : écrits en clair, ils se
+    // trouveraient eux-mêmes dans le fichier et le contrôle échouerait à tort.
+    var motifs = [
+      new RegExp("(src|srcset)\\s*=\\s*[\"'](https?:|//)", "i"),
+      new RegExp("<link[^>]+href\\s*=\\s*[\"'](https?:|//)", "i"),
+      new RegExp("@" + "import", "i"),
+      new RegExp("url\\(\\s*[\"']?https?:", "i")
+    ];
+    var externes = null;
+    for (var mi = 0; mi < motifs.length; mi++) if (motifs[mi].test(html)) externes = motifs[mi].source;
+    ok("Aucune ressource extérieure chargée", !externes,
+       externes ? "motif distant trouvé : " + externes
+                : "aucun script, feuille de style, police, image ni import distant : la page n'émet aucune requête sortante");
+    var octets = new Blob([html]).size;
+    ok("Poids du fichier", octets < 1500 * 1024,
+       nombre(Math.round(octets / 1024), 0) + " Ko en mémoire (cible : moins de 1 536 Ko)");
+    ok("Table de données chargée", COMMUNES.length > 34000 && Object.keys(DEP_BLOCS).length > 90,
+       nombre(COMMUNES.length, 0) + " communes et arrondissements, " + Object.keys(DEP_BLOCS).length + " départements");
+  })();
+
+  /* 11. Fenêtre temporelle et écrêtage effectivement appliqués. */
+  (function(){
+    var b = PAR_INSEE["33063"] && PAR_INSEE["33063"].blocs.A;
+    ok("Fenêtre temporelle mémorisée et affichée", b && b.mois === 24 && b.n > 1000,
+       b ? "Bordeaux, appartements : " + nombre(b.n, 0) + " ventes sur " + b.mois + " mois" : "—");
+    var croissant = true, q = b ? b.q : [];
+    for (var i = 1; i < q.length; i++) if (q[i] < q[i - 1]) croissant = false;
+    ok("Quantiles croissants", croissant && q.length === 5,
+       q.map(function(v){ return euroM2(v); }).join(" · "));
+  })();
+
+  return t;
+}
+
+function ecranControles(){
+  var t = lancerControles();
+  var echecs = 0;
+  for (var i = 0; i < t.length; i++) if (!t[i].ok) echecs++;
+  var lignes = t.map(function(c){
+    return '<div class="ctrl ' + (c.ok ? "ok" : "ko") + '"><span class="marque">' +
+      (c.ok ? "réussi" : "ÉCHEC") + '</span><span><b>' + ech(c.nom) + '</b>' +
+      (c.detail ? '<span class="detail">' + c.detail + '</span>' : '') + '</span></div>';
+  }).join("");
+  return '<h2>Contrôles internes</h2>' +
+    '<p class="doux">Ces vérifications viennent de tourner dans ton navigateur, sur le code réellement chargé — pas sur une capture faite ailleurs. Un contrôle en échec est affiché comme tel.</p>' +
+    (echecs === 0
+      ? '<div class="avis neutre"><span class="etiquette">' + t.length + ' contrôles, tous réussis</span>Relance la page pour les rejouer.</div>'
+      : '<div class="avis attention"><span class="etiquette">' + echecs + ' contrôle' + (echecs > 1 ? "s" : "") + ' en échec sur ' + t.length + '</span>Les résultats affichés par l\'outil sont à considérer avec prudence tant que ces contrôles n\'ont pas repassé.</div>') +
+    '<div class="carte">' + lignes + '</div>' +
+    '<div class="barre-nav"><button class="bouton discret" data-aller="accueil">Retour à l\'accueil</button></div>';
+}
+
+/* ==========================================================================
+   12. ROUTAGE, MISE À JOUR EN DIRECT, DÉMARRAGE
+   ========================================================================== */
+var BRANCHE = null;
+
+function appliquerCurseur(id, v){
+  if (!fini(v)) return;
+  switch (id){
+    case "negociation": ETAT.negociation = v; break;
+    case "apport": case "duree": case "taux": case "assurance": case "revenu":
+      if (ETAT.credit) ETAT.credit[id] = v; break;
+    case "loyer": case "vacance": case "charges":
+      if (ETAT.annuel) ETAT.annuel[id] = v; break;
+    case "nuit": case "remplissage": case "plateforme": case "menage": case "gestion":
+      if (ETAT.courte) ETAT.courte[id] = v; break;
+    case "travaux": case "prixM2": case "delai":
+      if (ETAT.revente) ETAT.revente[id] = v; break;
+  }
+}
+
+/* Réécrit les repères d'un curseur sans toucher au curseur lui-même : ceux qui
+   dépendent d'autres réglages doivent suivre, sans interrompre un glissement. */
+function majReperes(id, reperes){
+  var input = app.querySelector('input[data-curseur="' + id + '"]');
+  if (!input) return;
+  var piste = input.parentNode, cfg = CURSEURS[id];
+  if (!cfg) return;
+  var anciens = piste.querySelectorAll(".repere");
+  for (var i = 0; i < anciens.length; i++) piste.removeChild(anciens[i]);
+  var place = disposerReperes(reperes, cfg);
+  piste.className = "piste" + (place.rangs >= 3 ? " rangs3" : place.rangs === 2 ? " rangs2" : "");
+  for (var j = 0; j < place.liste.length; j++){
+    var r = place.liste[j];
+    var e = document.createElement("span");
+    e.className = "repere" + (r.attention ? " debord" : "") +
+                  (r.p < 0.12 ? " gauche" : r.p > 0.88 ? " droite" : "") + " rang" + r.rang;
+    e.style.left = positionRepere(r.v, cfg.min, cfg.max);
+    e.innerHTML = "<i></i><span>" + ech(r.label) + "</span>";
+    piste.appendChild(e);
+  }
+}
+
+function majVerdict(){
+  var r = lireBien();
+  if (!r.ok) return;
+  var p = profilDe(r.commune.insee, r.type, r.terrain);
+  if (!p.q) return;
+  var prixCents = prixVerse(r);
+  var prixM2 = prixCents / r.surface;
+  var rang = rangPercentile(prixM2, p.q);
+  var mediane = p.q[2];
+  var ecart = mediane > 0 ? (prixM2 - mediane) / mediane * 100 : NaN;
+  function pose(id, v){ var e = document.getElementById(id); if (e) e.innerHTML = v; }
+  pose("rang-nombre", nombre(Math.round(rang), 0));
+  pose("rang-phrase", "<b>" + nombre(Math.round(rang), 0) + " ventes sur 100</b> se sont faites moins cher au m² que ce bien.");
+  pose("tuile-prixm2", euroM2(prixM2));
+  pose("tuile-prixm2-note", "sur la base de " + euro(prixCents) + " versés au vendeur");
+  pose("tuile-ecart", fini(ecart) ? (ecart >= 0 ? "+" : MOINS) + nombre(Math.abs(ecart), 0) + INSEC + "%" : "—");
+  pose("prix-verse", euro(prixCents));
+  var courbe = document.getElementById("zone-courbe");
+  if (courbe) courbe.innerHTML = svgDistribution(p.q, prixM2, 660);
+}
+
+function majBranche(){
+  if (!BRANCHE) return;
+  var zr = document.getElementById("zone-resultat");
+  var zd = document.getElementById("zone-decompte");
+  if (zr) zr.innerHTML = BRANCHE.resultat();
+  if (zd) zd.innerHTML = BRANCHE.decompte();
+  // Repères dépendant d'autres réglages.
+  if (ETAT.credit){
+    majReperes("taux", [{ v: repereTauxMarche(ETAT.credit.duree), label: "moyenne du marché à " + ETAT.credit.duree + " ans" }]);
+    majReperes("duree", [{ v: REF.hcsf.dureeMax, label: "25 ans (HCSF)", attention: ETAT.credit.duree > REF.hcsf.dureeMax }]);
+  }
+  if (ETAT.projet === "annuel") majReperes("loyer", [{ v: reperLoyerEquilibre(), label: "loyer d'équilibre" }]);
+  if (ETAT.projet === "courte"){
+    var eq = remplissageEquilibre();
+    majReperes("remplissage", [{ v: eq, label: "couvre le crédit", attention: eq > 100 }]);
+  }
+}
+
+function majDirect(){
+  if (ETAT.ecran === "verdict") majVerdict();
+  else if (ETAT.ecran === "branche") majBranche();
+}
+
+/* --- Rendu -------------------------------------------------------------- */
+function rendre(){
+  CURSEURS = {};
+  var html;
+  switch (ETAT.ecran){
+    case "bien": html = ecranBien(); break;
+    case "verdict": html = ecranVerdict(); break;
+    case "projet": html = ecranProjet(); break;
+    case "limites": html = ecranLimites(); break;
+    case "controles": html = ecranControles(); break;
+    case "branche": {
+      var ctx = contexteFinancier();
+      if (!ctx){ ETAT.ecran = "bien"; html = ecranBien(); break; }
+      var fabriques = { habite: brancheHabite, annuel: brancheAnnuel, courte: brancheCourte, revente: brancheRevente };
+      BRANCHE = (fabriques[ETAT.projet] || brancheHabite)(ctx);
+      html = BRANCHE.rendu() +
+        '<div class="barre-nav"><button class="bouton discret" data-aller="projet">Changer de projet</button>' +
+        '<button class="bouton discret" data-aller="verdict">Retour au verdict</button></div>';
+      break;
+    }
+    default: html = ecranAccueil();
+  }
+  app.innerHTML = html;
+  if (ETAT.ecran === "bien") majBoutonBien();
+  if (ETAT.ecran === "branche") majBranche();
+  window.scrollTo(0, 0);
+}
+
+function aller(ecran){
+  if (ecran === "verdict" || ecran === "projet"){
+    var r = lireBien();
+    if (!r.ok) ecran = "bien";
+  }
+  ETAT.ecran = ecran;
+  rendre();
+}
+
+function majBoutonBien(){
+  var b = document.getElementById("valider-bien");
+  var zone = document.getElementById("zone-bien-message");
+  if (!b) return;
+  var r = lireBien();
+  if (zone) zone.innerHTML = r.erreur
+    ? '<div class="avis attention"><span class="etiquette">Saisie hors des bornes traitées</span>' + ech(r.erreur) + '</div>' : "";
+  if (r.ok){ b.disabled = false; b.textContent = "Situer ce prix"; }
+  else if (r.erreur){ b.disabled = true; b.textContent = "Corrige la saisie"; }
+  else { b.disabled = true; b.textContent = "Il manque " + r.manque; }
+}
+
+/* --- Autocomplétion ----------------------------------------------------- */
+var suggIndex = -1, suggListe = [];
+
+function afficherSuggestions(q){
+  var boite = document.getElementById("suggestions");
+  if (!boite) return;
+  suggListe = chercher(q, 12);
+  suggIndex = -1;
+  if (!q || !q.trim()){ boite.hidden = true; boite.innerHTML = ""; return; }
+  if (!suggListe.length){
+    boite.innerHTML = '<div class="vide">Aucune commune ne correspond. Essaie le code postal, ou le nom sans article.</div>';
+    boite.hidden = false; return;
+  }
+  // Toujours désambiguïsé par le département : un code postal peut couvrir
+  // plusieurs communes, et une commune porter plusieurs codes postaux.
+  boite.innerHTML = suggListe.map(function(c, i){
+    var cps = c.cps.map(function(n){ var s = String(n); while (s.length < 5) s = "0" + s; return s; }).join(", ");
+    return '<button type="button" data-insee="' + c.insee + '" data-i="' + i + '">' + ech(c.nom) +
+      ' <span class="sec">— ' + ech(DEPARTEMENTS[c.dep] || c.dep) + (cps ? " · " + ech(cps) : "") + '</span></button>';
+  }).join("");
+  boite.hidden = false;
+}
+
+function choisirCommune(insee){
+  if (!PAR_INSEE[insee]) return;
+  ETAT.bien.insee = insee;
+  rendre();
+}
+
+/* --- Écouteurs ---------------------------------------------------------- */
+document.addEventListener("click", function(e){
+  var t = e.target.closest ? e.target.closest("[data-aller],[data-branche],[data-type],[data-insee],#valider-bien") : null;
+  if (!t) {
+    var boite = document.getElementById("suggestions");
+    if (boite && !e.target.closest(".recherche")) boite.hidden = true;
+    return;
+  }
+  if (t.hasAttribute("data-aller")) return aller(t.getAttribute("data-aller"));
+  if (t.hasAttribute("data-branche")){ ETAT.projet = t.getAttribute("data-branche"); return aller("branche"); }
+  if (t.hasAttribute("data-type")){ ETAT.bien.type = t.getAttribute("data-type"); ETAT.revente = null; return rendre(); }
+  if (t.hasAttribute("data-insee")) return choisirCommune(t.getAttribute("data-insee"));
+  if (t.id === "valider-bien") return aller("verdict");
+});
+
+app.addEventListener("input", function(e){
+  var el = e.target;
+  if (el.id === "q-commune") return afficherSuggestions(el.value);
+  if (el.id === "q-prix"){ ETAT.bien.prix = el.value; return majBoutonBien(); }
+  if (el.id === "q-surface"){ ETAT.bien.surface = el.value; ETAT.revente = null; return majBoutonBien(); }
+  if (el.id === "q-terrain"){ ETAT.bien.terrain = el.value; return majBoutonBien(); }
+
+  if (el.hasAttribute("data-curseur")){
+    var id = el.getAttribute("data-curseur");
+    var v = parseFloat(el.value);
+    appliquerCurseur(id, v);
+    var champ = app.querySelector('input[data-champ="' + id + '"]');
+    var cfg = CURSEURS[id];
+    if (champ && document.activeElement !== champ){
+      champ.value = cfg && cfg.affiche ? cfg.affiche(v) : nombre(v, cfg ? (cfg.decimales || 0) : 0);
+    }
+    return majDirect();
+  }
+
+  if (el.hasAttribute("data-champ")){
+    var cid = el.getAttribute("data-champ");
+    var cf = CURSEURS[cid];
+    var val = lireNombre(el.value);
+    if (!fini(val) || !cf) return;
+    // Bornes explicites : la valeur est ramenée dans la plage du curseur et
+    // l'écart est dit, jamais corrigé en silence.
+    var borne = Math.max(cf.min, Math.min(cf.max, val));
+    var note = el.parentNode.parentNode.parentNode.querySelector(".depart");
+    if (borne !== val && note){
+      note.innerHTML = 'Le curseur s\'arrête à ' + nombre(cf.max, cf.decimales || 0) +
+        ' : la valeur retenue est ' + nombre(borne, cf.decimales || 0) + ', pas ' + nombre(val, cf.decimales || 0) + '.';
+    }
+    appliquerCurseur(cid, borne);
+    var glissiere = app.querySelector('input[data-curseur="' + cid + '"]');
+    if (glissiere) glissiere.value = borne;
+    return majDirect();
+  }
+});
+
+app.addEventListener("change", function(e){
+  if (e.target.id === "sel-regime" && ETAT.annuel){ ETAT.annuel.regime = e.target.value; return majBranche(); }
+  if (e.target.id === "sel-tmi" && ETAT.annuel){ ETAT.annuel.tmi = parseFloat(e.target.value); return majBranche(); }
+});
+
+app.addEventListener("keydown", function(e){
+  if (e.target.id !== "q-commune") return;
+  var boite = document.getElementById("suggestions");
+  if (!boite || boite.hidden) return;
+  var boutons = boite.querySelectorAll("button");
+  if (!boutons.length) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp"){
+    e.preventDefault();
+    suggIndex = (suggIndex + (e.key === "ArrowDown" ? 1 : -1) + boutons.length) % boutons.length;
+    for (var i = 0; i < boutons.length; i++) boutons[i].setAttribute("aria-selected", i === suggIndex);
+    boutons[suggIndex].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter"){
+    // Jamais de sélection automatique : il faut avoir choisi une ligne.
+    if (suggIndex >= 0){ e.preventDefault(); choisirCommune(boutons[suggIndex].getAttribute("data-insee")); }
+  } else if (e.key === "Escape"){ boite.hidden = true; }
+});
+
+/* --- Démarrage ---------------------------------------------------------- */
+(function demarrer(){
+  try {
+    chargerDonnees();
+  } catch (e){
+    app.innerHTML = '<div class="avis attention"><span class="etiquette">La table de données n\'a pas pu être lue</span>' +
+      'Le fichier est peut-être incomplet. Message : ' + ech(e.message) + '</div>';
+    return;
+  }
+  var o = REF.outil;
+  document.getElementById("pied-source").innerHTML =
+    "Ventes de référence : " + ech(REF.ventes.source) + ". " + ech(REF.ventes.licence) +
+    ". Millésime du 5 avril 2026, ventes du 1er janvier 2024 au 31 décembre 2025. " +
+    "Taux de crédit : " + ech(REF.credit.source) + ", " + ech(REF.credit.date) +
+    ". Marges de négociation : " + ech(REF.negociation.source) + ", " + ech(REF.negociation.date) + ".";
+  document.getElementById("pied-version").textContent =
+    "Version " + o.version + ", publiée le 30 août 2026.";
+  document.getElementById("pied-marque").innerHTML = ech(o.marque) +
+    (o.compte ? ' — <a href="' + ech(o.compte) + '" rel="noreferrer noopener">' +
+                ech(o.compteLibelle || o.compte) + '</a>' : '');
+  rendre();
+})();
+</script>
+</body>
+</html>

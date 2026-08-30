@@ -1,0 +1,6 @@
+# Données brutes DVF : ~2 Go, retéléchargeables via preparation/01_telecharger.sh
+preparation/data/
+preparation/travail/
+.DS_Store
+.vercel
+node_modules/
