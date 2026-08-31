@@ -1,0 +1,199 @@
+# Reconstruction automatique du fichier livré quand DGFiP publie un nouveau
+# millésime DVF.
+#
+# Le fichier livré reste entièrement hors ligne : ce n'est pas lui qui se met à
+# jour, c'est la chaîne de préparation qui le refabrique. Un visiteur du site
+# a donc toujours les derniers chiffres, et le fichier qu'il enregistre sur son
+# disque reste un instantané figé, daté, qui fonctionnera encore en mode avion
+# dans trois ans.
+#
+# DVF ne publie que deux fois par an, en avril et en octobre : onze mois sur
+# douze, ce workflow s'arrête en quelques secondes sans rien télécharger.
+
+name: Millésime DVF
+
+on:
+  schedule:
+    # Le 3 de chaque mois à 4 h UTC. Les diffusions DVF tombent en début de
+    # mois ; on laisse deux jours de marge.
+    - cron: "0 4 3 * *"
+  workflow_dispatch:
+    inputs:
+      forcer:
+        description: "Refabriquer même si le millésime n'a pas changé"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write        # pousser le fichier reconstruit
+  issues: write          # ouvrir l'issue de revue des barèmes
+
+concurrency:
+  group: millesime
+  cancel-in-progress: false
+
+jobs:
+  veille:
+    runs-on: ubuntu-latest
+    outputs:
+      nouveau: ${{ steps.verifier.outputs.nouveau }}
+      publie: ${{ steps.verifier.outputs.publie }}
+      embarque: ${{ steps.verifier.outputs.embarque }}
+      baremes: ${{ steps.verifier.outputs.baremes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Interroger data.gouv.fr
+        id: verifier
+        run: |
+          set +e
+          python3 preparation/00_verifier_sources.py > /tmp/veille.json
+          code=$?
+          set -e
+          # 1 = source inaccessible : on échoue franchement plutôt que de
+          # laisser croire que tout va bien.
+          if [ "$code" = "1" ]; then
+            echo "::error::source data.gouv.fr inaccessible"
+            exit 1
+          fi
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          d = json.load(open("/tmp/veille.json", encoding="utf-8"))
+          print("nouveau=%s" % str(d["dvf"]["nouveau"]).lower())
+          print("publie=%s" % d["dvf"]["publie"])
+          print("embarque=%s" % (d["dvf"]["embarque"] or ""))
+          print("baremes=%d" % len(d["baremes_a_revoir"]))
+          PY
+          cat /tmp/veille.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veille
+          path: /tmp/veille.json
+
+  reconstruire:
+    needs: veille
+    if: needs.veille.outputs.nouveau == 'true' || inputs.forcer
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Espace disque disponible
+        run: df -h / | tail -1
+
+      - name: Télécharger le dernier millésime
+        run: |
+          cd preparation
+          ./01_telecharger.sh --dernier
+
+      - name: Extraire et trier par mutation
+        run: |
+          cd preparation
+          ./02_extraire.sh
+
+      - name: Agréger
+        run: |
+          cd preparation
+          python3 03_agreger.py
+
+      - name: Encoder et fabriquer index.html
+        run: |
+          cd preparation
+          python3 04_encoder.py
+
+      # Aucun fichier n'est publié sans que les contrôles passent. C'est le
+      # garde-fou du pipeline : un millésime malformé ne doit pas se retrouver
+      # en ligne parce que personne ne regardait.
+      - name: Rejouer les 25 contrôles internes
+        run: node preparation/05_controles_node.js
+
+      - name: Contrôles de non-régression sur le fichier produit
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          chemin = "index.html"
+          octets = os.path.getsize(chemin)
+          html = open(chemin, encoding="utf-8").read()
+          echecs = []
+          if octets > 1536 * 1024:
+              echecs.append("poids %d Ko au-dessus de la cible" % (octets // 1024))
+          if "__BLOB__" in html or "__MILLESIME__" in html:
+              echecs.append("des marqueurs du gabarit n'ont pas été remplacés")
+          lignes = re.search(r"var BLOB = `(.*?)`;", html, re.S)
+          if not lignes:
+              echecs.append("table de données absente")
+          else:
+              n = lignes.group(1).count("\n")
+              if n < 34000:
+                  echecs.append("seulement %d lignes dans la table" % n)
+          for e in echecs:
+              print("::error::%s" % e)
+          sys.exit(1 if echecs else 0)
+          PY
+
+      - name: Publier
+        run: |
+          MILLESIME="${{ needs.veille.outputs.publie }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html preparation/millesime.json
+          if git diff --cached --quiet; then
+            echo "rien à publier : le fichier produit est identique"
+            exit 0
+          fi
+          git commit -m "Millésime DVF du $MILLESIME
+
+          Reconstruction automatique. Les 25 contrôles internes sont passés
+          avant publication.
+
+          Millésime précédent : ${{ needs.veille.outputs.embarque }}"
+          git push
+
+  # Les barèmes saisis à la main ne sont pas automatisables : Pretto n'expose
+  # pas d'API, Interkab publie en PDF, et les barèmes fiscaux sont des textes
+  # de loi. On ne les devine pas — on rappelle qu'il est temps de les relire.
+  baremes:
+    needs: veille
+    if: needs.veille.outputs.baremes != '0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: veille
+          path: /tmp
+
+      - name: Ouvrir ou mettre à jour l'issue de revue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > /tmp/corps.md
+          import json
+          d = json.load(open("/tmp/veille.json", encoding="utf-8"))
+          print("Ces barèmes sont saisis à la main dans l'objet `REF`, en tête de")
+          print("`preparation/modele.html`. Aucun n'a d'API publique fiable, donc rien")
+          print("ne peut les mettre à jour tout seul.\n")
+          print("| Barème | Source | Vérifié le | Âge | Champ |")
+          print("|---|---|---|---|---|")
+          for b in d["baremes_a_revoir"]:
+              lien = "[%s](%s)" % (b["source"], b["url"]) if b["url"] else b["source"]
+              print("| %s | %s | %s | %d mois | `%s` |"
+                    % (b["libelle"], lien, b["verifie_le"], b["age_mois"],
+                       b.get("champ_ref", "")))
+          print("\nAprès revue : mettre à jour les valeurs dans `preparation/modele.html`,")
+          print("puis `verifie_le` dans `preparation/baremes.json`, puis")
+          print("`python3 preparation/04_encoder.py` et `node preparation/05_controles_node.js`.")
+          PY
+          TITRE="Revue des barèmes saisis à la main"
+          EXISTANTE=$(gh issue list --state open --search "$TITRE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTANTE" ]; then
+            gh issue comment "$EXISTANTE" --body-file /tmp/corps.md
+          else
+            gh issue create --title "$TITRE" --body-file /tmp/corps.md --label "maintenance" 2>/dev/null \
+              || gh issue create --title "$TITRE" --body-file /tmp/corps.md
+          fi

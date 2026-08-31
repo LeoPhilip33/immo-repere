@@ -14,15 +14,29 @@ Contraintes d'encodage :
   · les blocs d'effectif inférieur à 10 ne sont pas embarqués : ils basculent
     de toute façon sur l'agrégat départemental.
 """
-import json, os, sys
+import datetime, json, os, sys
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 TRV = os.path.join(ICI, "travail")
 DATA = os.path.join(ICI, "data")
 RACINE = os.path.dirname(ICI)
 
-VERSION = "1.0.0"
-DATE_PUBLICATION = "2026-08-30"
+def lire_version():
+    """La version vit dans version.txt : l'intégration continue ne modifie
+    jamais un script pour publier."""
+    chemin = os.path.join(ICI, "version.txt")
+    if os.path.exists(chemin):
+        with open(chemin, encoding="utf-8") as f:
+            v = f.read().strip()
+            if v:
+                return v
+    return "0.0.0"
+
+
+VERSION = lire_version()
+# Date de fabrication du fichier, pas date écrite à la main : elle est juste
+# par construction, y compris quand la chaîne tourne toute seule.
+DATE_PUBLICATION = datetime.date.today().isoformat()
 SEUIL_EMBARQUEMENT = 10          # en deçà, repli départemental
 PAS_PRIX = 10                    # arrondi des prix au m², en euros
 SEP_SECTION = "\n@\n"            # aucun nom de commune ne contient d'arobase
@@ -95,6 +109,10 @@ def prefixe_commun(a, b):
 def main():
     agg = json.load(open(os.path.join(TRV, "agregats.json"), encoding="utf-8"))
     departements = json.load(open(os.path.join(DATA, "departements.json"), encoding="utf-8"))
+    mill = json.load(open(os.path.join(ICI, "millesime.json"), encoding="utf-8"))
+    fenetre = agg.get("fenetre") or {}
+    if not fenetre.get("periodeDebut"):
+        raise SystemExit("!! agregats.json ne porte pas la fenêtre : relancer 03_agreger.py")
     communes_ref = json.load(open(os.path.join(DATA, "communes.json"), encoding="utf-8"))
     arrm_ref = json.load(open(os.path.join(DATA, "arrondissements.json"), encoding="utf-8"))
 
@@ -159,6 +177,9 @@ def main():
         "__MUTATIONS_ECARTEES__": str(agg["stats"]["multi_lots"]),
         "__DEPARTEMENTS__": "|".join("%s:%s" % (d["code"], d["nom"])
                                      for d in sorted(departements, key=lambda x: x["code"])),
+        "__MILLESIME__": mill["millesime"],
+        "__PERIODE_DEBUT__": fenetre["periodeDebut"],
+        "__PERIODE_FIN__": fenetre["periodeFin"],
         "__VERSION__": VERSION,
         "__DATE_PUBLICATION__": DATE_PUBLICATION,
     }
@@ -170,7 +191,9 @@ def main():
     sortie = os.path.join(RACINE, "index.html")
     with open(sortie, "w", encoding="utf-8") as f:
         f.write(modele)
-    print("-> %s (%.0f Ko)" % (sortie, os.path.getsize(sortie) / 1024), file=sys.stderr)
+    print("-> %s (%.0f Ko) · millésime %s · version %s du %s"
+          % (sortie, os.path.getsize(sortie) / 1024, mill["millesime"],
+             VERSION, DATE_PUBLICATION), file=sys.stderr)
 
 
 if __name__ == "__main__":

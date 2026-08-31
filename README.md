@@ -43,19 +43,61 @@ Chaque constante de référence est étiquetée `DONNEE`, `REGLE` ou `HYPOTHESE`
 
 ---
 
-## Refabriquer le fichier
+## Actualisation
+
+**Le fichier livré ne se met jamais à jour tout seul** — il n'a pas le droit d'émettre une
+requête, c'est toute sa raison d'être. Ce qui est automatique, c'est sa **reconstruction**.
+
+`.github/workflows/millesime.yml` tourne le 3 de chaque mois :
+
+```
+interroge data.gouv.fr
+  └─ nouveau millésime DVF ?
+       non  → s'arrête en quelques secondes, ne télécharge rien
+       oui  → télécharge, exécute la chaîne, rejoue les 25 contrôles
+              └─ tous au vert ? → commit + push → Vercel redéploie
+```
+
+Un visiteur du site a donc toujours les derniers chiffres publiés, et le fichier qu'il
+enregistre sur son disque reste un instantané figé, daté, qui fonctionnera encore hors ligne
+dans trois ans. Aucun fichier n'est publié si un contrôle échoue.
+
+DVF ne diffuse que deux fois par an, en avril et en octobre : onze mois sur douze, le workflow
+ne fait rien.
+
+### Ce qui reste manuel, et pourquoi
+
+Les barèmes de `REF` sont saisis à la main. Aucun n'a d'API publique fiable — Pretto n'en
+expose pas, Interkab publie en PDF, et les barèmes fiscaux sont des textes de loi qui se
+lisent. Un scraper se casserait en silence, ce qui est pire que pas de mise à jour : on
+croirait les chiffres à jour alors qu'ils ne le seraient plus.
+
+Le workflow **ouvre donc une issue** quand un barème dépasse son rythme de revue, avec sa
+source, son âge et le champ exact à corriger. Les rythmes sont dans
+`preparation/baremes.json` ; après une revue, y remettre `verifie_le` à jour.
+
+C'est le point le plus volatil de l'outil : les taux de crédit changent tous les mois. Ils ne
+faussent pas le rang du bien, seulement les branches de financement — et ils sont sur un
+curseur, donc l'utilisateur peut saisir celui que sa banque lui annonce.
+
+## Refabriquer le fichier à la main
 
 Le fichier livré est engendré. La source est `preparation/modele.html` (le gabarit, sans
 données) plus la chaîne de préparation.
 
 ```bash
 cd preparation
-./01_telecharger.sh      # ~300 Mo compressés, ~2 Go décompressés
-./02_extraire.sh         # extraction + tri externe par mutation (~4 min)
-python3 03_agreger.py    # filtrage, écrêtage, quantiles (~3 min)
-python3 04_encoder.py    # encodage compact + injection -> ../index.html
-node 05_controles_node.js  # rejoue les 25 contrôles hors navigateur
+python3 00_verifier_sources.py   # un nouveau millésime est-il sorti ?
+./01_telecharger.sh              # ~300 Mo compressés, ~2 Go décompressés
+./02_extraire.sh                 # extraction + tri externe par mutation (~4 min)
+python3 03_agreger.py            # filtrage, écrêtage, quantiles (~3 min)
+python3 04_encoder.py            # encodage compact + injection -> ../index.html
+node 05_controles_node.js        # rejoue les 25 contrôles hors navigateur
 ```
+
+Aucune constante n'est à éditer : la fenêtre temporelle se déduit des millésimes annuels
+présents dans `data/`, et le millésime, la période, la version et la date de fabrication sont
+injectés dans le gabarit à l'étape 4.
 
 `preparation/data/` et `preparation/travail/` ne sont pas versionnés : ce sont des données
 brutes retéléchargeables.
@@ -63,9 +105,15 @@ brutes retéléchargeables.
 ### Source et millésime
 
 Demandes de valeurs foncières (DVF), DGFiP, diffusion Etalab sur data.gouv.fr.
-**Millésime épinglé au 5 avril 2026** — les URL de `01_telecharger.sh` contiennent
-l'horodatage `20260405`, ce qui garantit des chiffres reproductibles. Fenêtre de référence :
-1ᵉʳ janvier 2024 au 31 décembre 2025. Prochaine publication annoncée : octobre 2026.
+
+Le millésime est **épinglé dans `preparation/millesime.json`** : les URL qui s'y trouvent
+contiennent l'horodatage de la diffusion, si bien qu'un clone du dépôt rebâtit exactement les
+mêmes chiffres, aujourd'hui comme dans deux ans. `./01_telecharger.sh --dernier` interroge
+data.gouv.fr et réécrit ce fichier avec le millésime le plus récent — c'est ce que fait
+l'intégration continue, et rien d'autre ne devrait le faire.
+
+Millésime actuellement épinglé : **5 avril 2026**. Fenêtre de référence : 1ᵉʳ janvier 2024 au
+31 décembre 2025.
 
 Licence Ouverte Etalab 2.0 : réutilisation commerciale autorisée avec mention de la source,
 et interdiction de toute ré-identification. **Seuls des agrégats communaux sont embarqués** —

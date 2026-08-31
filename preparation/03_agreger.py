@@ -17,6 +17,7 @@ from collections import defaultdict
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 TRV = os.path.join(ICI, "travail")
+DATA = os.path.join(ICI, "data")
 
 # --- Bornes de plausibilité (§2 du cahier des charges) ---
 VALEUR_MIN_CENTS = 10_000 * 100   # cessions symboliques, ventes entre proches
@@ -24,17 +25,38 @@ SURFACE_MIN = 8                   # m²
 SURFACE_MAX = 1000                # m²
 SEUIL_TERRAIN = 500               # m² : segmentation des maisons
 
-# --- Fenêtres temporelles, en mois glissants depuis 2022-01 ---
-# La fenêtre de référence est 2024-01 -> 2025-12 (24 mois).
-MOIS_FIN = 202512
-FENETRES = [(24, 202401), (36, 202301), (48, 202201)]
+# --- Fenêtres temporelles ---
+# Elles ne sont pas écrites en dur : elles se déduisent des millésimes annuels
+# réellement présents dans data/. C'est ce qui permet à la chaîne de tourner
+# sans intervention quand DGFiP publie un nouveau millésime — sinon il faudrait
+# venir corriger des constantes à la main, et on oublierait.
+def annees_disponibles():
+    annees = []
+    for nom in os.listdir(DATA):
+        if nom.startswith("ValeursFoncieres-") and nom.endswith(".txt"):
+            a = nom[len("ValeursFoncieres-"):-len(".txt")]
+            if a.isdigit():
+                annees.append(int(a))
+    if not annees:
+        raise SystemExit("!! aucun fichier ValeursFoncieres-AAAA.txt dans data/")
+    return sorted(annees)
+
+
+ANNEES = annees_disponibles()
+ANNEE_DEBUT, ANNEE_FIN = ANNEES[0], ANNEES[-1]
+NB_MOIS = (ANNEE_FIN - ANNEE_DEBUT + 1) * 12
+# La fenêtre de référence est de 24 mois et se termine à la fin de la dernière
+# année complète ; elle s'élargit à 36 puis 48 mois si l'effectif est trop mince.
+MOIS_FIN = ANNEE_FIN * 100 + 12
+FENETRES = [(n, (ANNEE_FIN - n // 12 + 1) * 100 + 1) for n in (24, 36, 48)
+            if ANNEE_FIN - n // 12 + 1 >= ANNEE_DEBUT]
 
 
 def mois_index(ym: int) -> int:
-    """AAAAMM -> index de mois depuis 2022-01, ou -1 hors plage."""
+    """AAAAMM -> index de mois depuis janvier de la première année, ou -1."""
     a, m = divmod(ym, 100)
-    i = (a - 2022) * 12 + (m - 1)
-    return i if 0 <= i <= 47 else -1
+    i = (a - ANNEE_DEBUT) * 12 + (m - 1)
+    return i if 0 <= i < NB_MOIS else -1
 
 
 def quantile(tri, q):
@@ -199,9 +221,19 @@ def main():
     print("ratio Carrez médian :", carrez, file=sys.stderr)
 
     os.makedirs(TRV, exist_ok=True)
+    fenetre = {
+        "anneeDebut": ANNEE_DEBUT, "anneeFin": ANNEE_FIN,
+        # Période de référence, celle qui est affichée à l'écran.
+        "periodeDebut": "%d-01-01" % (ANNEE_FIN - 1),
+        "periodeFin": "%d-12-31" % ANNEE_FIN,
+        "fenetres": [n for n, _ in FENETRES],
+    }
+    print("fenêtre de référence : %s -> %s (millésimes %s)"
+          % (fenetre["periodeDebut"], fenetre["periodeFin"], ANNEES), file=sys.stderr)
+
     with open(os.path.join(TRV, "agregats.json"), "w", encoding="utf-8") as f:
         json.dump({"communes": communes, "departements": departements,
-                   "carrez": carrez, "stats": stats}, f)
+                   "carrez": carrez, "stats": stats, "fenetre": fenetre}, f)
     print("-> travail/agregats.json", file=sys.stderr)
 
 

@@ -1,0 +1,68 @@
+{
+  "_commentaire": "Barèmes saisis à la main dans REF, en tête de preparation/modele.html. Aucun n'a d'API publique fiable : Pretto n'en expose pas, Interkab publie en PDF, et les barèmes fiscaux sont des textes de loi. Ce fichier ne sert qu'à la veille — il rappelle quand aller les revoir, et où. Après une revue, mettre à jour verifie_le.",
+  "elements": [
+    {
+      "cle": "credit",
+      "libelle": "Taux de crédit par durée",
+      "source": "Baromètre de courtage Pretto",
+      "url": "https://www.pretto.fr/taux-immobilier/",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 1,
+      "champ_ref": "REF.credit.parDuree"
+    },
+    {
+      "cle": "credit_controle",
+      "libelle": "Taux moyen toutes durées, contrôle de cohérence",
+      "source": "Observatoire Crédit Logement / CSA",
+      "url": "https://www.lobservatoirecreditlogement.fr/",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 3,
+      "champ_ref": "REF.credit.controle"
+    },
+    {
+      "cle": "negociation",
+      "libelle": "Marges de négociation par ville",
+      "source": "Observatoire Interkab",
+      "url": "https://www.interkab.fr/",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 3,
+      "champ_ref": "REF.negociation"
+    },
+    {
+      "cle": "dmto",
+      "libelle": "Droits de mutation par département",
+      "source": "Article 1594 D du CGI",
+      "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000051266621",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 6,
+      "champ_ref": "REF.dmto"
+    },
+    {
+      "cle": "notaire",
+      "libelle": "Émoluments réglementés du notaire",
+      "source": "Tarif réglementé, arrêté en vigueur",
+      "url": "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006069565/LEGISCTA000031046680/",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 12,
+      "champ_ref": "REF.notaire"
+    },
+    {
+      "cle": "plus_value",
+      "libelle": "Plus-value : taux, abattements, surtaxe",
+      "source": "CGI art. 150 U et s., 1609 nonies G ; BOFiP BOI-RFPI-PVI",
+      "url": "https://bofip.impots.gouv.fr/bofip/5054-PGP.html",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 12,
+      "champ_ref": "REF.plusValue"
+    },
+    {
+      "cle": "locatif",
+      "libelle": "Régimes micro : abattements, plafonds, prélèvements sociaux",
+      "source": "CGI art. 32 et 50-0 ; loi de finances ; LFSS",
+      "url": "https://bofip.impots.gouv.fr/bofip/1044-PGP.html",
+      "verifie_le": "2026-08-30",
+      "rythme_mois": 12,
+      "champ_ref": "REF.locatif"
+    }
+  ]
+}
