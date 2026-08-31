@@ -41,7 +41,7 @@ jobs:
       embarque: ${{ steps.verifier.outputs.embarque }}
       baremes: ${{ steps.verifier.outputs.baremes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Interroger data.gouv.fr
         id: verifier
@@ -66,7 +66,7 @@ jobs:
           PY
           cat /tmp/veille.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: veille
           path: /tmp/veille.json
@@ -77,11 +77,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Espace disque disponible
         run: df -h / | tail -1
@@ -162,8 +162,8 @@ jobs:
     if: needs.veille.outputs.baremes != '0'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: veille
           path: /tmp
