@@ -233,13 +233,5 @@ est ainsi tenue par le navigateur, pas seulement par le code.
 
 ---
 
-## À compléter
-
-`REF.outil.compte` est vide : y mettre l'URL du compte de la marque pour que la signature du
-pied de page devienne un lien. Un `href` n'émet aucune requête tant qu'il n'est pas cliqué,
-le contrôle « aucune ressource extérieure » reste donc au vert.
-
----
-
 Outil pédagogique gratuit. Ne constitue ni un conseil en investissement, ni une estimation
 immobilière, ni une offre de crédit.

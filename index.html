@@ -528,12 +528,7 @@ var REF = {
     version: "1.0.0",
     datePublication: "2026-08-30",
     perimeMois: 9,         // au-delà, bandeau de péremption
-    marque: "Repère",
-    // Renvoi vers le compte de la marque. À remplir : tant que la chaîne est
-    // vide, la signature s'affiche sans lien. Un href n'émet aucune requête
-    // tant qu'il n'est pas cliqué.
-    compte: "",
-    compteLibelle: ""
+    marque: "Repère"
   }
 };
 
@@ -37625,9 +37620,7 @@ app.addEventListener("keydown", function(e){
     ". Marges de négociation : " + ech(REF.negociation.source) + ", " + ech(REF.negociation.date) + ".";
   document.getElementById("pied-version").textContent =
     "Version " + o.version + ", publiée le " + dateFr(o.datePublication) + ".";
-  document.getElementById("pied-marque").innerHTML = ech(o.marque) +
-    (o.compte ? ' — <a href="' + ech(o.compte) + '" rel="noreferrer noopener">' +
-                ech(o.compteLibelle || o.compte) + '</a>' : '');
+  document.getElementById("pied-marque").textContent = o.marque;
   rendre();
 })();
 </script>
